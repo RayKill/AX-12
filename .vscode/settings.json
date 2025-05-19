@@ -1,5 +1,6 @@
 {
     "files.associations": {
         "stm32746g_discovery_audio.h": "c"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }

@@ -1,26 +1,20 @@
 #include "lvgl.h"
 #include "lv_port_disp.h"
 
-#define MY_HOR_RES 480
-#define MY_VER_RES 272
+#define DISP_HOR_RES 480
+#define DISP_VER_RES 272
+#define FRAMEBUFFER_ADDR ((lv_color_t *)0xC0000000)  // RAM écran STM32F746G-DISCO
 
-static lv_disp_draw_buf_t draw_buf;
-static lv_color_t buf1[MY_HOR_RES * 10];
+void my_disp_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map)
+{
+    lv_coord_t x, y;
+    lv_color_t * fb = FRAMEBUFFER_ADDR;
 
-void lv_port_disp_init(void) {
-    lv_disp_draw_buf_init(&draw_buf, buf1, NULL, MY_HOR_RES * 10);
+    for (y = area->y1; y <= area->y2; y++) {
+        for (x = area->x1; x <= area->x2; x++) {
+            fb[y * DISP_HOR_RES + x] = ((lv_color_t *)px_map)[(y - area->y1) * (area->x2 - area->x1 + 1) + (x - area->x1)];
+        }
+    }
 
-    static lv_disp_drv_t disp_drv;
-    lv_disp_drv_init(&disp_drv);
-    disp_drv.flush_cb = my_disp_flush;
-    disp_drv.draw_buf = &draw_buf;
-    disp_drv.hor_res = MY_HOR_RES;
-    disp_drv.ver_res = MY_VER_RES;
-
-    lv_disp_drv_register(&disp_drv);
-}
-
-void my_disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p) {
-    // à implémenter pour afficher dans la framebuffer réelle
-    lv_disp_flush_ready(drv);
+    lv_display_flush_ready(disp);  // Signale à LVGL que le rendu est terminé
 }
