@@ -1,8 +1,14 @@
 #include "stm32f7xx_hal.h"
-#include "lv_port_disp.h" 
 #include "lvgl.h"
+#include "lv_port_disp.h"  // contient my_disp_flush()
 #include "ax12.h"
 #include "usart.h"
+
+#define DISP_HOR_RES 480
+#define DISP_VER_RES 272
+
+// Framebuffer (RAM LCD STM32F746G-DISCO)
+#define FRAMEBUFFER_ADDR ((lv_color_t *)0xC0000000)
 
 void SystemClock_Config(void);
 void MX_GPIO_Init(void);
@@ -12,7 +18,7 @@ static void event_handler(lv_event_t * e)
     lv_event_code_t code = lv_event_get_code(e);
 
     if (code == LV_EVENT_CLICKED) {
-        // Test action AX-12
+        // Test action sur servo
         ax12_ping(1);
         HAL_Delay(50);
 
@@ -60,22 +66,22 @@ int main(void)
 
     lv_init();
 
-    // ⬇️ Important : affichage via l'API v9 — il faut créer le display manuellement
-    lv_display_t * disp = lv_display_create(480, 272); // Taille écran
-    static lv_color_t buf1[480 * 10]; // ligne de buffer
+    // Initialisation du display (v9)
+    static lv_color_t buf1[DISP_HOR_RES * 10]; // buffer = 10 lignes
     static lv_draw_buf_t draw_buf;
-    lv_draw_buf_init(&draw_buf, buf1, NULL, sizeof(buf1));
-    lv_display_set_draw_buffers(disp, &draw_buf, NULL);
-    lv_display_set_flush_cb(disp, my_disp_flush); // À écrire
-    lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
 
-    // Optionnel : enregistrer comme display par défaut
+    lv_display_t * disp = lv_display_create(DISP_HOR_RES, DISP_VER_RES);
+
+    lv_draw_buf_init(&draw_buf, buf1, NULL, DISP_HOR_RES, 10, LV_COLOR_FORMAT_RGB565);
+    lv_display_set_draw_buffers(disp, &draw_buf, NULL);
+    lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
+    lv_display_set_flush_cb(disp, my_disp_flush);  // Définie dans lv_port_disp.c
     lv_display_set_default(disp);
 
     testLvgl();
 
     while (1) {
-        lv_timer_handler(); // v9 remplace lv_task_handler()
+        lv_timer_handler();  // v9 = remplace lv_task_handler()
         HAL_Delay(5);
     }
 }
