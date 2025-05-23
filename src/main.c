@@ -1,31 +1,90 @@
-#include "stm32f7xx_hal.h"
 #include "lvgl.h"
-#include "lv_port_disp.h"  // contient my_disp_flush()
+#include "lvglDrivers.h"
+#include "lv_conf.h"
+#include "stm32746g_discovery_lcd.h"
+#include "stm32746g_discovery_ts.h"
 #include "ax12.h"
 #include "usart.h"
 
 #define DISP_HOR_RES 480
 #define DISP_VER_RES 272
 
-// Framebuffer (RAM LCD STM32F746G-DISCO)
-#define FRAMEBUFFER_ADDR ((lv_color_t *)0xC0000000)
+/*********************
+ * LVGL TASK
+ *********************/
+static void lvglTask(void *pvParameters)
+{
+    while (1)
+    {
+        uint32_t time_till_next = lv_timer_handler();
+        vTaskDelay(pdMS_TO_TICKS(time_till_next));
+    }
+}
 
-void SystemClock_Config(void);
-void MX_GPIO_Init(void);
+/*********************
+ * LVGL FLUSH CALLBACK
+ *********************/
+static void my_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t *px_map)
+{
+    uint32_t *buf = (uint32_t *)px_map;
+    int32_t x, y;
+    for (y = area->y1; y <= area->y2; y++)
+    {
+        for (x = area->x1; x <= area->x2; x++)
+        {
+            BSP_LCD_DrawPixel(x, y, *buf);
+            buf++;
+        }
+    }
 
+    lv_display_flush_ready(display);
+}
+
+/*********************
+ * TOUCH INPUT CALLBACK
+ *********************/
+static void my_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
+{
+    TS_StateTypeDef TS_State;
+    BSP_TS_GetState(&TS_State);
+
+    if (TS_State.touchDetected != 0)
+    {
+        data->point.x = TS_State.touchX[0];
+        data->point.y = TS_State.touchY[0];
+        data->state = LV_INDEV_STATE_PRESSED;
+    }
+    else
+    {
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+}
+
+/*********************
+ * LOG PRINT CALLBACK
+ *********************/
+void my_log_cb(lv_log_level_t level, const char *buf)
+{
+    printf("[LVGL] %s\n", buf);
+}
+
+/*********************
+ * EVENT: AX-12 BUTTON
+ *********************/
 static void event_handler(lv_event_t * e)
 {
     lv_event_code_t code = lv_event_get_code(e);
 
-    if (code == LV_EVENT_CLICKED) {
-        // Test action sur servo
+    if (code == LV_EVENT_CLICKED)
+    {
         ax12_ping(1);
         HAL_Delay(50);
 
         uint16_t pos = ax12_read_position(1);
         HAL_Delay(50);
 
-        if (pos != 0xFFFF) {
+        if (pos != 0xFFFF)
+        {
             uint16_t newPos = pos + 50;
             if (newPos > 1023) newPos = 1023;
             ax12_move_to_position(1, newPos);
@@ -33,7 +92,10 @@ static void event_handler(lv_event_t * e)
     }
 }
 
-void testLvgl()
+/*********************
+ * UI SETUP
+ *********************/
+void mySetup()
 {
     lv_obj_t * label;
 
@@ -57,31 +119,66 @@ void testLvgl()
     lv_obj_center(label);
 }
 
-int main(void)
+/*********************
+ * OPTIONAL BACKGROUND TASK
+ *********************/
+void myTask(void *pvParameters)
 {
-    HAL_Init();
-    SystemClock_Config();
-    MX_GPIO_Init();
-    UART1_Init();
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+
+    while (1)
+    {
+        // Exemple : lire et afficher position AX-12 ici
+        // uint16_t pos = ax12_read_position(1);
+
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(500));
+    }
+}
+
+/*********************
+ * SYSTEM SETUP
+ *********************/
+void setup()
+{
+    printf("Start\n");
+
+    BSP_LCD_Init();
+    BSP_LCD_LayerDefaultInit(0, LCD_FB_START_ADDRESS);
+    BSP_TS_Init(480, 272);
+
+    UART1_Init();  // Init UART pour AX-12
 
     lv_init();
+    lv_log_register_print_cb(my_log_cb);
 
-    // Initialisation du display (v9)
-    static lv_color_t buf1[DISP_HOR_RES * 10]; // buffer = 10 lignes
-    static lv_draw_buf_t draw_buf;
+    // Affichage
+    lv_display_t *display = lv_display_create(DISP_HOR_RES, DISP_VER_RES);
+    static uint32_t buf[DISP_HOR_RES * DISP_VER_RES / 10];  // 10 % buffer
+    lv_display_set_flush_cb(display, my_flush_cb);
+    lv_display_set_buffers(display, buf, NULL, sizeof(buf), LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-    lv_display_t * disp = lv_display_create(DISP_HOR_RES, DISP_VER_RES);
+    // Tactile
+    lv_indev_t *indev = lv_indev_create();
+    lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_read_cb(indev, my_read_cb);
 
-    lv_draw_buf_init(&draw_buf, buf1, NULL, DISP_HOR_RES, 10, LV_COLOR_FORMAT_RGB565);
-    lv_display_set_draw_buffers(disp, &draw_buf, NULL);
-    lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
-    lv_display_set_flush_cb(disp, my_disp_flush);  // Définie dans lv_port_disp.c
-    lv_display_set_default(disp);
+    // Tick handler FreeRTOS
+    lv_tick_set_cb(xTaskGetTickCount);
 
-    testLvgl();
+    // Interface utilisateur
+    mySetup();
 
-    while (1) {
-        lv_timer_handler();  // v9 = remplace lv_task_handler()
-        HAL_Delay(5);
-    }
+    // Tâches
+    xTaskCreate(lvglTask, NULL, 16384, NULL, osPriorityNormal, NULL);
+    xTaskCreate(myTask, NULL, 16384, NULL, osPriorityNormal, NULL);
+
+    vTaskStartScheduler();
+
+    // Si jamais on sort du scheduler (RAM manquante ?)
+    printf("Insufficient RAM!\n");
+    while (1);
+}
+
+void loop() {
+    // Nécessaire pour linker avec Arduino core
 }
