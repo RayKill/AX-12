@@ -126,14 +126,36 @@ void myTask(void *pvParameters)
 {
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
+    uint16_t pos = 512;
+    int16_t delta = 50;
+
     while (1)
     {
-        // Exemple : lire et afficher position AX-12 ici
-        // uint16_t pos = ax12_read_position(1);
+        // Ping
+        ax12_ping(1);
+        HAL_Delay(20);
 
-        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(500));
+        // Lire la position actuelle
+        uint16_t current = ax12_read_position(1);
+        HAL_Delay(20);
+
+        // Vérification simple
+        if (current != 0xFFFF)
+        {
+            pos = current + delta;
+
+            // Limites AX-12 (0–1023)
+            if (pos > 900 || pos < 100)
+                delta = -delta;
+
+            // Bouger
+            ax12_move_to_position(1, pos);
+        }
+
+        vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000)); // toutes les 1 sec
     }
 }
+
 
 /*********************
  * SYSTEM SETUP
