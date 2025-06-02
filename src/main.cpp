@@ -2,8 +2,9 @@
 #include "Arduino.h"
 #include "lvglDrivers.h"
 
-#define SERVO_ID 1
+#define SERVO_ID 0xFE
 
+HardwareSerial ax12(PC_7, PC_6);
 static void event_handler(lv_event_t *e)
 {
   lv_event_code_t code = lv_event_get_code(e);
@@ -42,11 +43,11 @@ void testLvgl()
 void mySetup()
 {
   Serial.begin(115200);
-  Serial1.begin(1000000); // AX-12A communication at 1 Mbps
+  ax12.begin(1000000); 
 
   Serial.println("Initialisation terminée");
 
-  testLvgl(); // Charge interface
+  testLvgl(); 
 }
 
 void loop()
@@ -68,7 +69,7 @@ void myTask(void *pvParameters)
       (uint8_t)(~(SERVO_ID + 0x02 + 0x01))  // checksum
     };
 
-    Serial1.write(packet, 6);
+    ax12.write(packet, 6);
     Serial.println("PING envoyé à AX-12A");
 
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(2000)); // toutes les 2 secondes
