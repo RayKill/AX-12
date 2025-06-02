@@ -40,3 +40,8 @@ upload_protocol = stlink
 build_flags = 
     -DLV_CONF_INCLUDE_SIMPLE
     -Iinclude
+
+## ⚙️ A modifier prochainement :
+
+Modifier la resistance et mettre du 1K.
+
