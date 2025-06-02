@@ -1,14 +1,15 @@
+#include <stddef.h>
 #include "lvgl.h"
 #include "lv_port_disp.h"
 
 #define DISP_HOR_RES 480
 #define DISP_VER_RES 272
-#define FRAMEBUFFER_ADDR ((lv_color_t *)0xC0000000)  // RAM écran STM32F746G-DISCO
+#define FRAMEBUFFER_ADDR ((lv_color_t *)0xC0000000)
 
-void my_disp_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map)
+void my_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
 {
     lv_coord_t x, y;
-    lv_color_t * fb = FRAMEBUFFER_ADDR;
+    lv_color_t *fb = FRAMEBUFFER_ADDR;
 
     for (y = area->y1; y <= area->y2; y++) {
         for (x = area->x1; x <= area->x2; x++) {
@@ -16,5 +17,11 @@ void my_disp_flush(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map
         }
     }
 
-    lv_display_flush_ready(disp);  // Signale à LVGL que le rendu est terminé
+    lv_display_flush_ready(disp);
+}
+
+void lv_port_disp_init(void)
+{
+    lv_display_t *disp = lv_display_create(DISP_HOR_RES, DISP_VER_RES);
+    lv_display_set_flush_cb(disp, my_disp_flush);
 }
