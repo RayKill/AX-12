@@ -44,4 +44,6 @@ build_flags =
 ## ⚙️ A modifier prochainement :
 
 Modifier la resistance et mettre du 1K.
+Rajouter une liste déroulante qui va vérifier tout les ax-12a présent sur le bus (boucle qui envoie un par un un ping à un id 0X00 to 0XFD) et les récupérer si présent (réponse de l'ax12).
+Permettre de choisir un ax-12a afin de pouvoir le reconfigurer (changer id etc...)
 
