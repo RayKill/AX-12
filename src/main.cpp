@@ -1,77 +1,108 @@
 #include "lvgl.h"
 #include "Arduino.h"
 #include "lvglDrivers.h"
+#include "PeripheralPins.h"
 
-#define SERVO_ID 0xFE
+#define SERVO_ID 0x01
+HardwareSerial ax12(USART6);  // TX = PG14 (D1)
 
-HardwareSerial ax12(PC_7, PC_6);
-static void event_handler(lv_event_t *e)
+uint16_t g_vitesse = 512;
+
+void enableTorque() {
+  uint8_t packet[8] = {0xFF, 0xFF, SERVO_ID, 0x04, 0x03, 0x18, 0x01, (uint8_t)(~(SERVO_ID + 0x04 + 0x03 + 0x18 + 0x01))};
+  ax12.write(packet, 8);
+}
+
+void setVitesse(uint16_t vitesse) {
+  g_vitesse = vitesse;
+  uint8_t velL = vitesse & 0xFF;
+  uint8_t velH = (vitesse >> 8) & 0xFF;
+  uint8_t packet[9] = {0xFF, 0xFF, SERVO_ID, 0x05, 0x03, 0x20, velL, velH, (uint8_t)(~(SERVO_ID + 0x05 + 0x03 + 0x20 + velL + velH))};
+  ax12.write(packet, 9);
+}
+
+void moveTo(uint16_t position) {
+  setVitesse(g_vitesse);
+  uint8_t posL = position & 0xFF;
+  uint8_t posH = (position >> 8) & 0xFF;
+  uint8_t packet[9] = {0xFF, 0xFF, SERVO_ID, 0x05, 0x03, 0x1E, posL, posH, (uint8_t)(~(SERVO_ID + 0x05 + 0x03 + 0x1E + posL + posH))};
+  ax12.write(packet, 9);
+}
+
+// --- CALLBACKS SLIDERS ---
+static void slider_position_cb(lv_event_t *e)
 {
-  lv_event_code_t code = lv_event_get_code(e);
-  if (code == LV_EVENT_CLICKED) {
-    LV_LOG_USER("Clicked");
+  lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
+  int pos = lv_slider_get_value(slider);
+  lv_obj_t *label = (lv_obj_t *)lv_event_get_user_data(e);
+  static char buf[32];
+  snprintf(buf, sizeof(buf), "Position: %d", pos);
+  lv_label_set_text(label, buf);
+  if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+    moveTo(pos);
   }
-  else if (code == LV_EVENT_VALUE_CHANGED) {
-    LV_LOG_USER("Toggled");
+}
+
+static void slider_vitesse_cb(lv_event_t *e)
+{
+  lv_obj_t *slider = (lv_obj_t *)lv_event_get_target(e);
+  int v = lv_slider_get_value(slider);
+  lv_obj_t *label = (lv_obj_t *)lv_event_get_user_data(e);
+  static char buf[32];
+  snprintf(buf, sizeof(buf), "Vitesse: %d", v);
+  lv_label_set_text(label, buf);
+  if (lv_event_get_code(e) == LV_EVENT_VALUE_CHANGED) {
+    setVitesse(v);
   }
 }
 
 void testLvgl()
 {
-  lv_obj_t *label;
+  // Position Slider + Label
+  lv_obj_t *slider_pos = lv_slider_create(lv_scr_act());
+  lv_obj_set_width(slider_pos, 250);
+  lv_obj_align(slider_pos, LV_ALIGN_CENTER, 0, -60);  // Positionne bien en haut
+  lv_slider_set_range(slider_pos, 0, 1023);
+  lv_slider_set_value(slider_pos, 512, LV_ANIM_OFF);
 
-  lv_obj_t *btn1 = lv_btn_create(lv_scr_act());
-  lv_obj_add_event_cb(btn1, event_handler, LV_EVENT_ALL, NULL);
-  lv_obj_align(btn1, LV_ALIGN_CENTER, 0, -40);
-  lv_obj_remove_flag(btn1, LV_OBJ_FLAG_PRESS_LOCK);
+  lv_obj_t *label_pos = lv_label_create(lv_scr_act());
+  lv_obj_align_to(label_pos, slider_pos, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
 
-  label = lv_label_create(btn1);
-  lv_label_set_text(label, "Button");
-  lv_obj_center(label);
+  lv_obj_add_event_cb(slider_pos, slider_position_cb, LV_EVENT_VALUE_CHANGED, label_pos);
 
-  lv_obj_t *btn2 = lv_btn_create(lv_scr_act());
-  lv_obj_add_event_cb(btn2, event_handler, LV_EVENT_ALL, NULL);
-  lv_obj_align(btn2, LV_ALIGN_CENTER, 0, 40);
-  lv_obj_add_flag(btn2, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(btn2, LV_SIZE_CONTENT);
+  // Vitesse Slider + Label
+  lv_obj_t *slider_vit = lv_slider_create(lv_scr_act());
+  lv_obj_set_width(slider_vit, 250);
+  lv_obj_align(slider_vit, LV_ALIGN_CENTER, 0, 60);   // Positionne bien en bas
+  lv_slider_set_range(slider_vit, 0, 1023);
+  lv_slider_set_value(slider_vit, 512, LV_ANIM_OFF);
 
-  label = lv_label_create(btn2);
-  lv_label_set_text(label, "Toggle");
-  lv_obj_center(label);
+  lv_obj_t *label_vit = lv_label_create(lv_scr_act());
+  lv_obj_align_to(label_vit, slider_vit, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+
+  lv_obj_add_event_cb(slider_vit, slider_vitesse_cb, LV_EVENT_VALUE_CHANGED, label_vit);
 }
 
 void mySetup()
 {
   Serial.begin(115200);
-  ax12.begin(1000000); 
+  ax12.begin(1000000);
+  pinmap_pinout(PG_14, PinMap_UART_TX);
 
-  Serial.println("Initialisation terminée");
+  enableTorque();
+  delay(20);
 
-  testLvgl(); 
+  setVitesse(g_vitesse);
+
+  testLvgl();
+
+  Serial.println("Interface 2 sliders prête !");
 }
 
-void loop()
-{
-}
+void loop() {}
 
-void myTask(void *pvParameters)
-{
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-
-  while (1)
-  {
-    // Crée et envoie un paquet PING vers le servo
-    uint8_t packet[6] = {
-      0xFF, 0xFF,
-      SERVO_ID,
-      0x02,     // length
-      0x01,     // instruction: PING
-      (uint8_t)(~(SERVO_ID + 0x02 + 0x01))  // checksum
-    };
-
-    ax12.write(packet, 6);
-    Serial.println("PING envoyé à AX-12A");
-
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(2000)); // toutes les 2 secondes
+void myTask(void *pvParameters) {
+  while (1) {
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
