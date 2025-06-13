@@ -138,34 +138,34 @@ void initGripper() {
 
 void controlGripper(bool close) {
   if (close && !gripperClosed) {
-    // Fermeture intelligente avec adaptation à l'objet - OPTIMISÉE
-    Serial.println("Fermeture intelligente de la pince...");
-    if (label_status) lv_label_set_text(label_status, "Fermeture intelligente...");
+    // Fermeture intelligente RAPIDE avec adaptation à l'objet
+    Serial.println("Fermeture rapide intelligente de la pince...");
+    if (label_status) lv_label_set_text(label_status, "Fermeture rapide...");
     
-    setVitesse(GRIPPER_LEFT_ID, 80);   // Vitesse augmentée pour approche
-    setVitesse(GRIPPER_RIGHT_ID, 80);
+    setVitesse(GRIPPER_LEFT_ID, 150);   // Vitesse très augmentée pour approche
+    setVitesse(GRIPPER_RIGHT_ID, 150);
     
-    // Étape 1: Approche rapide vers la position de contact
+    // Étape 1: Approche très rapide vers la position de contact
     moveTo(GRIPPER_LEFT_ID, 888);
     moveTo(GRIPPER_RIGHT_ID, 440);
-    delay(300);  // Délai réduit
+    delay(400);  // Délai augmenté pour s'assurer que le mouvement est terminé
     
     // Étape 2: Fermeture progressive avec détection d'objet
     Serial.println("Detection d'objet en cours...");
-    setVitesse(GRIPPER_LEFT_ID, 20);   // Vitesse lente pour détecter
-    setVitesse(GRIPPER_RIGHT_ID, 20);
+    setVitesse(GRIPPER_LEFT_ID, 30);   // Vitesse augmentée pour détecter
+    setVitesse(GRIPPER_RIGHT_ID, 30);
     
     uint16_t lastLoadLeft = 0, lastLoadRight = 0;
     bool objectDetected = false;
     
-    // Fermeture progressive par petits pas - OPTIMISÉE
-    for (int step = 0; step < 15 && !objectDetected; step++) {  // Moins d'étapes pour plus de rapidité
+    // Fermeture progressive par petits pas - RAPIDE
+    for (int step = 0; step < 12 && !objectDetected; step++) {  // Moins d'étapes pour plus de rapidité
       int leftPos = 888 + step;
       int rightPos = 440 - step;
       
       moveTo(GRIPPER_LEFT_ID, leftPos);
       moveTo(GRIPPER_RIGHT_ID, rightPos);
-      delay(80); // Délai réduit pour plus de fluidité
+      delay(120); // Délai augmenté pour s'assurer du mouvement
       
       // Lire la charge actuelle
       uint16_t loadLeft = readLoad(GRIPPER_LEFT_ID);
@@ -180,10 +180,12 @@ void controlGripper(bool close) {
         Serial.print(" D:");
         Serial.println(loadRight);
         
-        // Appliquer une pression importante pour sécuriser la prise
-        moveTo(GRIPPER_LEFT_ID, leftPos + 8);  // +8 pour beaucoup plus de pression
+        // Appliquer une pression importante RAPIDEMENT
+        setVitesse(GRIPPER_LEFT_ID, 80);   // Vitesse rapide pour pression finale
+        setVitesse(GRIPPER_RIGHT_ID, 80);
+        moveTo(GRIPPER_LEFT_ID, leftPos + 8);
         moveTo(GRIPPER_RIGHT_ID, rightPos - 8);
-        delay(300);  // Délai réduit
+        delay(400);  // Délai pour s'assurer de la pression
         
         objectDetected = true;
         if (label_status) lv_label_set_text(label_status, "Objet saisi - Prise adaptee");
@@ -195,28 +197,30 @@ void controlGripper(bool close) {
     }
     
     if (!objectDetected) {
-      // Aucun objet détecté, fermeture complète mais douce
+      // Aucun objet détecté, fermeture complète RAPIDE
+      setVitesse(GRIPPER_LEFT_ID, 100);   // Vitesse rapide pour fermeture finale
+      setVitesse(GRIPPER_RIGHT_ID, 100);
       moveTo(GRIPPER_LEFT_ID, GRIPPER_LEFT_CLOSED);
       moveTo(GRIPPER_RIGHT_ID, GRIPPER_RIGHT_CLOSED);
-      delay(250);  // Délai réduit
+      delay(350);  // Délai pour s'assurer de la fermeture complète
       if (label_status) lv_label_set_text(label_status, "Pince fermee - Aucun objet");
     }
     
     gripperClosed = true;
     
   } else if (!close && gripperClosed) {
-    // Ouverture RAPIDE pour éviter de faire tomber l'objet
-    Serial.println("Ouverture rapide...");
-    if (label_status) lv_label_set_text(label_status, "Liberation de l'objet...");
+    // Ouverture TRÈS RAPIDE
+    Serial.println("Ouverture tres rapide...");
+    if (label_status) lv_label_set_text(label_status, "Liberation rapide de l'objet...");
     
-    setVitesse(GRIPPER_LEFT_ID, 120);   // Vitesse augmentée
-    setVitesse(GRIPPER_RIGHT_ID, 120);
+    setVitesse(GRIPPER_LEFT_ID, 200);   // Vitesse maximale pour ouverture
+    setVitesse(GRIPPER_RIGHT_ID, 200);
     
     // Mouvement symétrique vers les positions ouvertes
     moveTo(GRIPPER_LEFT_ID, GRIPPER_LEFT_OPEN);
     moveTo(GRIPPER_RIGHT_ID, GRIPPER_RIGHT_OPEN);
     
-    delay(400);  // Délai réduit
+    delay(500);  // Délai augmenté pour s'assurer de l'ouverture complète
     gripperClosed = false;
     if (label_status) lv_label_set_text(label_status, "Pince ouverte - Objet libere");
   }
