@@ -19,7 +19,9 @@ HardwareSerial ax12(USART6); // TX: PG_14 (D1), RX: PC_7 (D0)
 uint8_t current_servo_id = 0x01;
 uint16_t g_vitesse = 100;
 volatile bool runningSequence = false;
+volatile bool sequenceRunning = false;
 volatile bool gripperClosed = false;
+uint8_t servo_transport_id = 41;
 
 enum AppState {
   MENU_MAIN,
@@ -34,6 +36,14 @@ lv_obj_t *servo_dropdown = NULL;
 
 static uint8_t detected_ids[50];
 static uint8_t detected_count = 0;
+
+// Déclarations des fonctions
+void sequenceDroite();
+void sequenceGauche();
+void controlGripper(bool close);
+void initGripper();
+void show_ctrl_menu(uint8_t id);
+void show_main_menu();
 
 // --- AX-12A communication ---
 void enableTorque(uint8_t id) {
@@ -128,34 +138,34 @@ void initGripper() {
 
 void controlGripper(bool close) {
   if (close && !gripperClosed) {
-    // Fermeture intelligente avec adaptation à l'objet
+    // Fermeture intelligente avec adaptation à l'objet - OPTIMISÉE
     Serial.println("Fermeture intelligente de la pince...");
     if (label_status) lv_label_set_text(label_status, "Fermeture intelligente...");
     
-    setVitesse(GRIPPER_LEFT_ID, 50);   // Vitesse modérée pour approche
-    setVitesse(GRIPPER_RIGHT_ID, 50);
+    setVitesse(GRIPPER_LEFT_ID, 80);   // Vitesse augmentée pour approche
+    setVitesse(GRIPPER_RIGHT_ID, 80);
     
-    // Étape 1: Approche lente vers la position de contact
+    // Étape 1: Approche rapide vers la position de contact
     moveTo(GRIPPER_LEFT_ID, 888);
     moveTo(GRIPPER_RIGHT_ID, 440);
-    delay(400);
+    delay(300);  // Délai réduit
     
     // Étape 2: Fermeture progressive avec détection d'objet
     Serial.println("Detection d'objet en cours...");
-    setVitesse(GRIPPER_LEFT_ID, 15);   // Vitesse très lente pour détecter
-    setVitesse(GRIPPER_RIGHT_ID, 15);
+    setVitesse(GRIPPER_LEFT_ID, 20);   // Vitesse lente pour détecter
+    setVitesse(GRIPPER_RIGHT_ID, 20);
     
     uint16_t lastLoadLeft = 0, lastLoadRight = 0;
     bool objectDetected = false;
     
-    // Fermeture progressive par petits pas
-    for (int step = 0; step < 20 && !objectDetected; step++) {  // Plus d'étapes
+    // Fermeture progressive par petits pas - OPTIMISÉE
+    for (int step = 0; step < 15 && !objectDetected; step++) {  // Moins d'étapes pour plus de rapidité
       int leftPos = 888 + step;
       int rightPos = 440 - step;
       
       moveTo(GRIPPER_LEFT_ID, leftPos);
       moveTo(GRIPPER_RIGHT_ID, rightPos);
-      delay(100); // Délai réduit pour plus de fluidité
+      delay(80); // Délai réduit pour plus de fluidité
       
       // Lire la charge actuelle
       uint16_t loadLeft = readLoad(GRIPPER_LEFT_ID);
@@ -173,7 +183,7 @@ void controlGripper(bool close) {
         // Appliquer une pression importante pour sécuriser la prise
         moveTo(GRIPPER_LEFT_ID, leftPos + 8);  // +8 pour beaucoup plus de pression
         moveTo(GRIPPER_RIGHT_ID, rightPos - 8);
-        delay(400);
+        delay(300);  // Délai réduit
         
         objectDetected = true;
         if (label_status) lv_label_set_text(label_status, "Objet saisi - Prise adaptee");
@@ -188,35 +198,126 @@ void controlGripper(bool close) {
       // Aucun objet détecté, fermeture complète mais douce
       moveTo(GRIPPER_LEFT_ID, GRIPPER_LEFT_CLOSED);
       moveTo(GRIPPER_RIGHT_ID, GRIPPER_RIGHT_CLOSED);
-      delay(300);
+      delay(250);  // Délai réduit
       if (label_status) lv_label_set_text(label_status, "Pince fermee - Aucun objet");
     }
     
     gripperClosed = true;
     
   } else if (!close && gripperClosed) {
-    // Ouverture progressive pour éviter de faire tomber l'objet
-    Serial.println("Ouverture progressive...");
+    // Ouverture RAPIDE pour éviter de faire tomber l'objet
+    Serial.println("Ouverture rapide...");
     if (label_status) lv_label_set_text(label_status, "Liberation de l'objet...");
     
-    setVitesse(GRIPPER_LEFT_ID, 60);   // Vitesse modérée
-    setVitesse(GRIPPER_RIGHT_ID, 60);
+    setVitesse(GRIPPER_LEFT_ID, 120);   // Vitesse augmentée
+    setVitesse(GRIPPER_RIGHT_ID, 120);
     
     // Mouvement symétrique vers les positions ouvertes
     moveTo(GRIPPER_LEFT_ID, GRIPPER_LEFT_OPEN);
     moveTo(GRIPPER_RIGHT_ID, GRIPPER_RIGHT_OPEN);
     
-    delay(600);
+    delay(400);  // Délai réduit
     gripperClosed = false;
     if (label_status) lv_label_set_text(label_status, "Pince ouverte - Objet libere");
   }
 }
 
-// --- CALLBACKS UI ---
-void show_ctrl_menu(uint8_t id);
-void show_main_menu();
-void update_servo_dropdown();
+// Séquences automatiques
+void sequenceDroite() {
+  if (sequenceRunning) return;
+  sequenceRunning = true;
+  
+  Serial.println("=== SEQUENCE DROITE ===");
+  if (label_status) lv_label_set_text(label_status, "Sequence DROITE en cours...");
+  
+  // 1. Ouvrir la pince d'abord (sécurité) - RAPIDE
+  Serial.println("1. Ouverture pince (securite)");
+  setVitesse(GRIPPER_LEFT_ID, 150);  // Vitesse augmentée
+  setVitesse(GRIPPER_RIGHT_ID, 150);
+  moveTo(GRIPPER_LEFT_ID, GRIPPER_LEFT_OPEN);
+  moveTo(GRIPPER_RIGHT_ID, GRIPPER_RIGHT_OPEN);
+  gripperClosed = false;
+  delay(600);  // Délai réduit
+  
+  // 2. Déplacer le servo de transport vers position 192 - RAPIDE
+  Serial.println("2. Deplacement vers position de prise (192)");
+  if (label_status) lv_label_set_text(label_status, "Deplacement vers zone de prise...");
+  setVitesse(servo_transport_id, 200);  // Vitesse augmentée
+  moveTo(servo_transport_id, 192);
+  delay(2000);  // Délai augmenté pour mouvement complet
+  
+  // 3. Fermer la pince intelligemment - RAPIDE
+  Serial.println("3. Fermeture intelligente de la pince");
+  if (label_status) lv_label_set_text(label_status, "Saisie de l'objet...");
+  controlGripper(true);
+  delay(800);  // Délai réduit
+  
+  // 4. Déplacer vers position de dépôt 839 - MODÉRÉ avec objet
+  Serial.println("4. Deplacement vers position de depot (839)");
+  if (label_status) lv_label_set_text(label_status, "Transport vers zone de depot...");
+  setVitesse(servo_transport_id, 120);  // Vitesse modérée avec objet
+  moveTo(servo_transport_id, 839);
+  delay(2500);  // Délai augmenté pour sécurité avec objet
+  
+  // 5. Ouvrir la pince pour libérer - RAPIDE
+  Serial.println("5. Liberation de l'objet");
+  if (label_status) lv_label_set_text(label_status, "Liberation de l'objet");
+  controlGripper(false);
+  delay(600);  // Délai réduit
+  
+  Serial.println("=== SEQUENCE DROITE TERMINEE ===");
+  if (label_status) lv_label_set_text(label_status, "Sequence DROITE terminee avec succes");
+  sequenceRunning = false;
+}
 
+void sequenceGauche() {
+  if (sequenceRunning) return;
+  sequenceRunning = true;
+  
+  Serial.println("=== SEQUENCE GAUCHE ===");
+  if (label_status) lv_label_set_text(label_status, "Sequence GAUCHE en cours...");
+  
+  // 1. Ouvrir la pince d'abord (sécurité) - RAPIDE
+  Serial.println("1. Ouverture pince (securite)");
+  setVitesse(GRIPPER_LEFT_ID, 150);  // Vitesse augmentée
+  setVitesse(GRIPPER_RIGHT_ID, 150);
+  moveTo(GRIPPER_LEFT_ID, GRIPPER_LEFT_OPEN);
+  moveTo(GRIPPER_RIGHT_ID, GRIPPER_RIGHT_OPEN);
+  gripperClosed = false;
+  delay(600);  // Délai réduit
+  
+  // 2. Déplacer le servo de transport vers position 839 - RAPIDE
+  Serial.println("2. Deplacement vers position de prise (839)");
+  if (label_status) lv_label_set_text(label_status, "Deplacement vers zone de prise...");
+  setVitesse(servo_transport_id, 200);  // Vitesse augmentée
+  moveTo(servo_transport_id, 839);
+  delay(2000);  // Délai augmenté pour mouvement complet
+  
+  // 3. Fermer la pince intelligemment - RAPIDE
+  Serial.println("3. Fermeture intelligente de la pince");
+  if (label_status) lv_label_set_text(label_status, "Saisie de l'objet...");
+  controlGripper(true);
+  delay(800);  // Délai réduit
+  
+  // 4. Déplacer vers position de dépôt 192 - MODÉRÉ avec objet
+  Serial.println("4. Deplacement vers position de depot (192)");
+  if (label_status) lv_label_set_text(label_status, "Transport vers zone de depot...");
+  setVitesse(servo_transport_id, 120);  // Vitesse modérée avec objet
+  moveTo(servo_transport_id, 192);
+  delay(2500);  // Délai augmenté pour sécurité avec objet
+  
+  // 5. Ouvrir la pince pour libérer - RAPIDE
+  Serial.println("5. Liberation de l'objet");
+  if (label_status) lv_label_set_text(label_status, "Liberation de l'objet");
+  controlGripper(false);
+  delay(600);  // Délai réduit
+  
+  Serial.println("=== SEQUENCE GAUCHE TERMINEE ===");
+  if (label_status) lv_label_set_text(label_status, "Sequence GAUCHE terminee avec succes");
+  sequenceRunning = false;
+}
+
+// --- CALLBACKS UI ---
 static void dropdown_servo_cb(lv_event_t *e) {
   lv_obj_t *dropdown = (lv_obj_t *)lv_event_get_target(e);
   uint16_t selected = lv_dropdown_get_selected(dropdown);
@@ -237,136 +338,6 @@ static void gripper_toggle_cb(lv_event_t *e) {
   controlGripper(close);
 }
 
-// --- MENU PRINCIPAL ---
-void show_main_menu() {
-  app_state = MENU_MAIN;
-  runningSequence = false;
-  
-  if (ctrl_menu) {
-    lv_obj_del(ctrl_menu);
-    ctrl_menu = NULL;
-  }
-  if (main_menu) {
-    lv_obj_del(main_menu);
-    main_menu = NULL;
-  }
-
-  main_menu = lv_obj_create(lv_scr_act());
-  lv_obj_set_size(main_menu, 480, 272);
-  lv_obj_set_style_bg_color(main_menu, lv_color_hex(0x1E1E2E), 0);
-
-  // Titre principal
-  lv_obj_t *title = lv_label_create(main_menu);
-  lv_label_set_text(title, "CONTROLE AX-12A & PINCE ROBOTIQUE");
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
-  lv_obj_set_style_text_color(title, lv_color_hex(0x89B4FA), 0);
-
-  // Status label
-  label_status = lv_label_create(main_menu);
-  lv_obj_align(label_status, LV_ALIGN_TOP_MID, 0, 35);
-  lv_label_set_text(label_status, "Appuie sur Scanner pour detecter les servos");
-  lv_obj_set_style_text_color(label_status, lv_color_hex(0xF9E2AF), 0);
-
-  // Section SERVOMOTEURS
-  lv_obj_t *servo_title = lv_label_create(main_menu);
-  lv_label_set_text(servo_title, "CONTROLE SERVOMOTEURS");
-  lv_obj_align(servo_title, LV_ALIGN_TOP_LEFT, 20, 70);
-  lv_obj_set_style_text_color(servo_title, lv_color_hex(0x94E2D5), 0);
-
-  // Bouton Scanner
-  lv_obj_t *btn_scan = lv_btn_create(main_menu);
-  lv_obj_set_size(btn_scan, 100, 35);
-  lv_obj_align(btn_scan, LV_ALIGN_TOP_LEFT, 20, 95);
-  lv_obj_set_style_bg_color(btn_scan, lv_color_hex(0x89B4FA), 0);
-  lv_obj_add_event_cb(btn_scan, [](lv_event_t *e){
-      if (label_status) lv_label_set_text(label_status, "Scan en cours...");
-      detected_count = 0;
-      
-      for (uint8_t id = 0; id <= 254; ++id) {
-          char info[40];
-          snprintf(info, sizeof(info), "Scan ID %d...", id);
-          if (label_status) lv_label_set_text(label_status, info);
-
-          if (ax12_ping(id)) {
-              detected_ids[detected_count++] = id;
-          }
-      }
-      
-      if (detected_count == 0) {
-          if (label_status) lv_label_set_text(label_status, "Aucun servo detecte !");
-      } else {
-          char result[60];
-          snprintf(result, sizeof(result), "%d servo(s) detecte(s). Selectionne dans la liste.", detected_count);
-          if (label_status) lv_label_set_text(label_status, result);
-          update_servo_dropdown();
-      }
-  }, LV_EVENT_CLICKED, NULL);
-  
-  lv_obj_t *lbl_scan = lv_label_create(btn_scan);
-  lv_label_set_text(lbl_scan, "Scanner");
-  lv_obj_center(lbl_scan);
-
-  // Dropdown servos
-  servo_dropdown = lv_dropdown_create(main_menu);
-  lv_obj_set_width(servo_dropdown, 200);
-  lv_obj_align(servo_dropdown, LV_ALIGN_TOP_LEFT, 140, 95);
-  lv_dropdown_set_text(servo_dropdown, "Aucun servo detecte");
-  lv_obj_add_flag(servo_dropdown, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_set_style_bg_color(servo_dropdown, lv_color_hex(0x45475A), 0);
-  lv_obj_set_style_text_color(servo_dropdown, lv_color_hex(0xCDD6F4), 0);
-  lv_obj_add_event_cb(servo_dropdown, dropdown_servo_cb, LV_EVENT_VALUE_CHANGED, NULL);
-
-  // Section PINCE
-  lv_obj_t *gripper_title = lv_label_create(main_menu);
-  lv_label_set_text(gripper_title, "PINCE ROBOTIQUE INTELLIGENTE");
-  lv_obj_align(gripper_title, LV_ALIGN_TOP_LEFT, 20, 150);
-  lv_obj_set_style_text_color(gripper_title, lv_color_hex(0xF38BA8), 0);
-
-  // Boutons pince en ligne
-  lv_obj_t *btn_init = lv_btn_create(main_menu);
-  lv_obj_set_size(btn_init, 90, 35);
-  lv_obj_align(btn_init, LV_ALIGN_TOP_LEFT, 20, 175);
-  lv_obj_set_style_bg_color(btn_init, lv_color_hex(0xA6E3A1), 0);
-  lv_obj_add_event_cb(btn_init, [](lv_event_t *e){ initGripper(); }, LV_EVENT_CLICKED, NULL);
-  lv_obj_t *lbl_init = lv_label_create(btn_init);
-  lv_label_set_text(lbl_init, "Initialiser");
-  lv_obj_center(lbl_init);
-
-  lv_obj_t *btn_toggle = lv_btn_create(main_menu);
-  lv_obj_set_size(btn_toggle, 120, 35);
-  lv_obj_align(btn_toggle, LV_ALIGN_TOP_LEFT, 125, 175);
-  lv_obj_add_flag(btn_toggle, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_style_bg_color(btn_toggle, lv_color_hex(0xF38BA8), 0);
-  lv_obj_set_style_bg_color(btn_toggle, lv_color_hex(0xF9E2AF), LV_STATE_CHECKED);
-  lv_obj_add_event_cb(btn_toggle, gripper_toggle_cb, LV_EVENT_VALUE_CHANGED, NULL);
-  lv_obj_t *lbl_toggle = lv_label_create(btn_toggle);
-  lv_label_set_text(lbl_toggle, "Ouvrir/Fermer");
-  lv_obj_center(lbl_toggle);
-
-  lv_obj_t *btn_test = lv_btn_create(main_menu);
-  lv_obj_set_size(btn_test, 80, 35);
-  lv_obj_align(btn_test, LV_ALIGN_TOP_LEFT, 260, 175);
-  lv_obj_set_style_bg_color(btn_test, lv_color_hex(0xCBA6F7), 0);
-  lv_obj_add_event_cb(btn_test, [](lv_event_t *e){
-      bool leftOk = ax12_ping(GRIPPER_LEFT_ID);
-      bool rightOk = ax12_ping(GRIPPER_RIGHT_ID);
-      
-      char status[80];
-      if (leftOk && rightOk) {
-          snprintf(status, sizeof(status), "Pince OK - Gauche: ID%d, Droite: ID%d", GRIPPER_LEFT_ID, GRIPPER_RIGHT_ID);
-          enableTorque(GRIPPER_LEFT_ID);
-          enableTorque(GRIPPER_RIGHT_ID);
-      } else {
-          snprintf(status, sizeof(status), "Erreur pince - G:%s D:%s", leftOk ? "OK" : "KO", rightOk ? "OK" : "KO");
-      }
-      
-      if (label_status) lv_label_set_text(label_status, status);
-  }, LV_EVENT_CLICKED, NULL);
-  lv_obj_t *lbl_test = lv_label_create(btn_test);
-  lv_label_set_text(lbl_test, "Test");
-  lv_obj_center(lbl_test);
-}
-
 void update_servo_dropdown() {
   if (!servo_dropdown || detected_count == 0) return;
   
@@ -383,6 +354,137 @@ void update_servo_dropdown() {
   
   lv_dropdown_set_options(servo_dropdown, options);
   lv_obj_clear_flag(servo_dropdown, LV_OBJ_FLAG_HIDDEN);
+}
+
+// --- MENU PRINCIPAL ---
+void show_main_menu() {
+  app_state = MENU_MAIN;
+  runningSequence = false;
+  sequenceRunning = false;
+  
+  if (ctrl_menu) {
+    lv_obj_del(ctrl_menu);
+    ctrl_menu = NULL;
+  }
+  if (main_menu) {
+    lv_obj_del(main_menu);
+    main_menu = NULL;
+  }
+
+  main_menu = lv_obj_create(lv_scr_act());
+  lv_obj_set_size(main_menu, 480, 272);
+  lv_obj_set_style_bg_color(main_menu, lv_color_hex(0x1E1E2E), 0);
+
+  // Titre principal
+  lv_obj_t *title = lv_label_create(main_menu);
+  lv_label_set_text(title, "ROBOT DE TRI AUTOMATIQUE");
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+  lv_obj_set_style_text_color(title, lv_color_hex(0x89B4FA), 0);
+
+  // Status label
+  label_status = lv_label_create(main_menu);
+  lv_obj_align(label_status, LV_ALIGN_TOP_MID, 0, 35);
+  lv_label_set_text(label_status, "Robot pret - Scannez d'abord les servos");
+  lv_obj_set_style_text_color(label_status, lv_color_hex(0xF9E2AF), 0);
+
+  // Section DEBUG/SCAN
+  lv_obj_t *debug_title = lv_label_create(main_menu);
+  lv_label_set_text(debug_title, "DEBUG - SCAN SERVOMOTEURS");
+  lv_obj_align(debug_title, LV_ALIGN_TOP_LEFT, 20, 70);
+  lv_obj_set_style_text_color(debug_title, lv_color_hex(0x94E2D5), 0);
+
+  // Bouton Scanner
+  lv_obj_t *btn_scan = lv_btn_create(main_menu);
+  lv_obj_set_size(btn_scan, 120, 35);
+  lv_obj_align(btn_scan, LV_ALIGN_TOP_LEFT, 20, 95);
+  lv_obj_set_style_bg_color(btn_scan, lv_color_hex(0x89B4FA), 0);
+  lv_obj_add_event_cb(btn_scan, [](lv_event_t *e){
+      if (label_status) lv_label_set_text(label_status, "Scan des servos en cours...");
+      detected_count = 0;
+      
+      // Test spécifique des servos importants
+      uint8_t test_ids[] = {GRIPPER_LEFT_ID, GRIPPER_RIGHT_ID, 41};
+      for (uint8_t i = 0; i < 3; i++) {
+          uint8_t id = test_ids[i];
+          char info[50];
+          snprintf(info, sizeof(info), "Test servo ID %d...", id);
+          if (label_status) lv_label_set_text(label_status, info);
+          
+          if (ax12_ping(id)) {
+              detected_ids[detected_count++] = id;
+              enableTorque(id);
+          }
+      }
+      
+      // Scan complet
+      for (uint8_t id = 0; id <= 254; ++id) {
+          if (id == GRIPPER_LEFT_ID || id == GRIPPER_RIGHT_ID || id == 41) continue;
+          
+          if (ax12_ping(id)) {
+              bool already_found = false;
+              for (uint8_t j = 0; j < detected_count; j++) {
+                  if (detected_ids[j] == id) {
+                      already_found = true;
+                      break;
+                  }
+              }
+              if (!already_found) {
+                  detected_ids[detected_count++] = id;
+              }
+          }
+      }
+      
+      char result[80];
+      snprintf(result, sizeof(result), "Scan termine: %d servo(s) detecte(s)", detected_count);
+      if (label_status) lv_label_set_text(label_status, result);
+      update_servo_dropdown();
+  }, LV_EVENT_CLICKED, NULL);
+  
+  lv_obj_t *lbl_scan = lv_label_create(btn_scan);
+  lv_label_set_text(lbl_scan, "Scanner Servos");
+  lv_obj_center(lbl_scan);
+
+  // Dropdown servos (pour debug)
+  servo_dropdown = lv_dropdown_create(main_menu);
+  lv_obj_set_width(servo_dropdown, 200);
+  lv_obj_align(servo_dropdown, LV_ALIGN_TOP_LEFT, 160, 95);
+  lv_dropdown_set_text(servo_dropdown, "Aucun servo detecte");
+  lv_obj_add_flag(servo_dropdown, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_set_style_bg_color(servo_dropdown, lv_color_hex(0x45475A), 0);
+  lv_obj_set_style_text_color(servo_dropdown, lv_color_hex(0xCDD6F4), 0);
+  lv_obj_add_event_cb(servo_dropdown, dropdown_servo_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+  // Section SEQUENCES AUTOMATIQUES
+  lv_obj_t *seq_title = lv_label_create(main_menu);
+  lv_label_set_text(seq_title, "SEQUENCES AUTOMATIQUES DE TRI");
+  lv_obj_align(seq_title, LV_ALIGN_TOP_LEFT, 20, 150);
+  lv_obj_set_style_text_color(seq_title, lv_color_hex(0xF38BA8), 0);
+
+  // Bouton GAUCHE
+  lv_obj_t *btn_gauche = lv_btn_create(main_menu);
+  lv_obj_set_size(btn_gauche, 180, 50);
+  lv_obj_align(btn_gauche, LV_ALIGN_TOP_LEFT, 50, 180);
+  lv_obj_set_style_bg_color(btn_gauche, lv_color_hex(0xA6E3A1), 0);
+  lv_obj_set_style_bg_color(btn_gauche, lv_color_hex(0x94E2D5), LV_STATE_PRESSED);
+  lv_obj_add_event_cb(btn_gauche, [](lv_event_t *e){ 
+      sequenceGauche();
+  }, LV_EVENT_CLICKED, NULL);
+  lv_obj_t *lbl_gauche = lv_label_create(btn_gauche);
+  lv_label_set_text(lbl_gauche, "SEQUENCE GAUCHE\n839 -> 192");
+  lv_obj_center(lbl_gauche);
+
+  // Bouton DROITE  
+  lv_obj_t *btn_droite = lv_btn_create(main_menu);
+  lv_obj_set_size(btn_droite, 180, 50);
+  lv_obj_align(btn_droite, LV_ALIGN_TOP_LEFT, 250, 180);
+  lv_obj_set_style_bg_color(btn_droite, lv_color_hex(0xF38BA8), 0);
+  lv_obj_set_style_bg_color(btn_droite, lv_color_hex(0xF9E2AF), LV_STATE_PRESSED);
+  lv_obj_add_event_cb(btn_droite, [](lv_event_t *e){ 
+      sequenceDroite();
+  }, LV_EVENT_CLICKED, NULL);
+  lv_obj_t *lbl_droite = lv_label_create(btn_droite);
+  lv_label_set_text(lbl_droite, "SEQUENCE DROITE\n192 -> 839");
+  lv_obj_center(lbl_droite);
 }
 
 // --- MENU CONTROLE ---
@@ -487,11 +589,7 @@ void show_ctrl_menu(uint8_t id) {
   lv_obj_center(toggle_label);
   lv_obj_add_event_cb(toggle, [](lv_event_t *e){
     lv_obj_t *btn = (lv_obj_t *)lv_event_get_target(e);
-    if (lv_obj_has_state(btn, LV_STATE_CHECKED)) {
-      runningSequence = true;
-    } else {
-      runningSequence = false;
-    }
+    runningSequence = lv_obj_has_state(btn, LV_STATE_CHECKED);
   }, LV_EVENT_VALUE_CHANGED, NULL);
 
   // Bouton retour
@@ -527,10 +625,14 @@ void mySetup() {
   Serial.println("Fin scan test.");
 
   testLvgl();
-  Serial.println("Interface AX-12A et pince robotique prete !");
+  Serial.println("Interface robot de tri automatique prete !");
 }
 
-void loop() {}
+void loop() {
+  // Gestion LVGL dans la loop principale
+  lv_timer_handler();
+  delay(5);
+}
 
 void myTask(void *pvParameters) {
   while (1) {
@@ -540,6 +642,11 @@ void myTask(void *pvParameters) {
       vTaskDelay(pdMS_TO_TICKS(700 + abs((int)pos - 512) * 2));
     } else {
       vTaskDelay(pdMS_TO_TICKS(50));
+    }
+    
+    // Permettre l'exécution d'autres tâches pendant les séquences
+    if (sequenceRunning) {
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
   }
 }
