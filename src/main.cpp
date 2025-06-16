@@ -33,6 +33,7 @@ lv_obj_t *main_menu = NULL;
 lv_obj_t *ctrl_menu = NULL;
 lv_obj_t *label_status = NULL;
 lv_obj_t *servo_dropdown = NULL;
+lv_obj_t *label_torque_info = NULL;  // NOUVEAU : Label pour afficher les infos de torque
 
 static uint8_t detected_ids[50];
 static uint8_t detected_count = 0;
@@ -44,6 +45,8 @@ void controlGripper(bool close);
 void initGripper();
 void show_ctrl_menu(uint8_t id);
 void show_main_menu();
+uint16_t readTorqueLimit(uint8_t id);  // NOUVEAU
+void displayTorqueInfo();              // NOUVEAU
 
 // --- AX-12A communication ---
 void enableTorque(uint8_t id) {
@@ -97,6 +100,158 @@ uint16_t readLoad(uint8_t id) {
     }
   }
   return 0;
+}
+
+// NOUVELLE FONCTION : Lire la limite de torque configurée
+uint16_t readTorqueLimit(uint8_t id) {
+  uint8_t packet[8] = {0xFF, 0xFF, id, 0x04, 0x02, 0x0E, 0x02, (uint8_t)(~(id + 0x04 + 0x02 + 0x0E + 0x02))};
+  while (ax12.available()) ax12.read();
+  ax12.write(packet, 8);
+  
+  unsigned long t0 = millis();
+  while (millis() - t0 < AX12_TIMEOUT_MS) {
+    if (ax12.available() >= 8) {
+      uint8_t resp[8];
+      for (uint8_t i = 0; i < 8; i++) resp[i] = ax12.read();
+      if (resp[0] == 0xFF && resp[1] == 0xFF && resp[2] == id) {
+        return (resp[6] << 8) | resp[5];
+      }
+    }
+  }
+  return 0;
+}
+
+// NOUVELLE FONCTION : Lire les erreurs du servo
+uint8_t readServoError(uint8_t id) {
+  uint8_t packet[8] = {0xFF, 0xFF, id, 0x04, 0x02, 0x12, 0x01, (uint8_t)(~(id + 0x04 + 0x02 + 0x12 + 0x01))};
+  while (ax12.available()) ax12.read();
+  ax12.write(packet, 8);
+  
+  unsigned long t0 = millis();
+  while (millis() - t0 < AX12_TIMEOUT_MS) {
+    if (ax12.available() >= 7) {
+      uint8_t resp[7];
+      for (uint8_t i = 0; i < 7; i++) resp[i] = ax12.read();
+      if (resp[0] == 0xFF && resp[1] == 0xFF && resp[2] == id) {
+        return resp[4]; // Byte d'erreur
+      }
+    }
+  }
+  return 0xFF; // Erreur de communication
+}
+
+// FONCTION DE TEST : Vérifier la communication et lire différents registres
+void displayTorqueInfo() {
+  if (!label_torque_info) return;
+  
+  static char torque_text[400];
+  
+  Serial.println("=== TEST COMMUNICATION COMPLETE ===");
+  
+  // Test 1: Lire la position actuelle (registre 0x24) - devrait changer
+  uint16_t pos_left = 0, pos_right = 0;
+  
+  // Lecture position servo gauche
+  uint8_t packet1[8] = {0xFF, 0xFF, GRIPPER_LEFT_ID, 0x04, 0x02, 0x24, 0x02, (uint8_t)(~(GRIPPER_LEFT_ID + 0x04 + 0x02 + 0x24 + 0x02))};
+  while (ax12.available()) ax12.read();
+  ax12.write(packet1, 8);
+  delay(10);
+  if (ax12.available() >= 8) {
+    uint8_t resp[8];
+    for (uint8_t i = 0; i < 8; i++) resp[i] = ax12.read();
+    if (resp[0] == 0xFF && resp[1] == 0xFF && resp[2] == GRIPPER_LEFT_ID) {
+      pos_left = (resp[6] << 8) | resp[5];
+    }
+  }
+  
+  // Lecture position servo droite
+  uint8_t packet2[8] = {0xFF, 0xFF, GRIPPER_RIGHT_ID, 0x04, 0x02, 0x24, 0x02, (uint8_t)(~(GRIPPER_RIGHT_ID + 0x04 + 0x02 + 0x24 + 0x02))};
+  while (ax12.available()) ax12.read();
+  ax12.write(packet2, 8);
+  delay(10);
+  if (ax12.available() >= 8) {
+    uint8_t resp[8];
+    for (uint8_t i = 0; i < 8; i++) resp[i] = ax12.read();
+    if (resp[0] == 0xFF && resp[1] == 0xFF && resp[2] == GRIPPER_RIGHT_ID) {
+      pos_right = (resp[6] << 8) | resp[5];
+    }
+  }
+  
+  // Test 2: Lire les vraies valeurs de charge et limite
+  uint16_t load_left = readLoad(GRIPPER_LEFT_ID);
+  uint16_t load_right = readLoad(GRIPPER_RIGHT_ID);
+  uint16_t limit_left = readTorqueLimit(GRIPPER_LEFT_ID);
+  uint16_t limit_right = readTorqueLimit(GRIPPER_RIGHT_ID);
+  
+  // Test 3: Lire la température (registre 0x2B) - pour vérifier la comm
+  uint8_t temp_left = 0, temp_right = 0;
+  
+  uint8_t packet3[8] = {0xFF, 0xFF, GRIPPER_LEFT_ID, 0x04, 0x02, 0x2B, 0x01, (uint8_t)(~(GRIPPER_LEFT_ID + 0x04 + 0x02 + 0x2B + 0x01))};
+  while (ax12.available()) ax12.read();
+  ax12.write(packet3, 8);
+  delay(10);
+  if (ax12.available() >= 7) {
+    uint8_t resp[7];
+    for (uint8_t i = 0; i < 7; i++) resp[i] = ax12.read();
+    if (resp[0] == 0xFF && resp[1] == 0xFF && resp[2] == GRIPPER_LEFT_ID) {
+      temp_left = resp[5];
+    }
+  }
+  
+  uint8_t packet4[8] = {0xFF, 0xFF, GRIPPER_RIGHT_ID, 0x04, 0x02, 0x2B, 0x01, (uint8_t)(~(GRIPPER_RIGHT_ID + 0x04 + 0x02 + 0x2B + 0x01))};
+  while (ax12.available()) ax12.read();
+  ax12.write(packet4, 8);
+  delay(10);
+  if (ax12.available() >= 7) {
+    uint8_t resp[7];
+    for (uint8_t i = 0; i < 7; i++) resp[i] = ax12.read();
+    if (resp[0] == 0xFF && resp[1] == 0xFF && resp[2] == GRIPPER_RIGHT_ID) {
+      temp_right = resp[5];
+    }
+  }
+  
+  // Affichage complet
+  snprintf(torque_text, sizeof(torque_text), 
+    "ID %d: Pos=%d Charge=%d Limite=%d Temp=%d°C\n"
+    "ID %d: Pos=%d Charge=%d Limite=%d Temp=%d°C\n"
+    "Statut: Pince %s",
+    GRIPPER_LEFT_ID, pos_left, load_left, limit_left, temp_left,
+    GRIPPER_RIGHT_ID, pos_right, load_right, limit_right, temp_right,
+    gripperClosed ? "FERMEE" : "OUVERTE"
+  );
+  
+  lv_label_set_text(label_torque_info, torque_text);
+  
+  // Debug complet dans Serial
+  Serial.print("ID ");
+  Serial.print(GRIPPER_LEFT_ID);
+  Serial.print(" - Position: ");
+  Serial.print(pos_left);
+  Serial.print(", Charge: ");
+  Serial.print(load_left);
+  Serial.print(", Limite: ");
+  Serial.print(limit_left);
+  Serial.print(", Temp: ");
+  Serial.print(temp_left);
+  Serial.println("°C");
+  
+  Serial.print("ID ");
+  Serial.print(GRIPPER_RIGHT_ID);
+  Serial.print(" - Position: ");
+  Serial.print(pos_right);
+  Serial.print(", Charge: ");
+  Serial.print(load_right);
+  Serial.print(", Limite: ");
+  Serial.print(limit_right);
+  Serial.print(", Temp: ");
+  Serial.print(temp_right);
+  Serial.println("°C");
+  
+  // Analyse des résultats
+  bool comm_ok = (pos_left != pos_right) || (temp_left != temp_right);
+  Serial.print("Communication: ");
+  Serial.println(comm_ok ? "OK - Valeurs différentes détectées" : "PROBLEME - Valeurs identiques suspectes");
+  Serial.println("========================");
 }
 
 // --- AX-12A PING avec reception ---
@@ -383,7 +538,7 @@ void update_servo_dropdown() {
   lv_obj_clear_flag(servo_dropdown, LV_OBJ_FLAG_HIDDEN);
 }
 
-// --- MENU PRINCIPAL ---
+// --- MENU PRINCIPAL MODIFIÉ ---
 void show_main_menu() {
   app_state = MENU_MAIN;
   runningSequence = false;
@@ -405,25 +560,25 @@ void show_main_menu() {
   // Titre principal
   lv_obj_t *title = lv_label_create(main_menu);
   lv_label_set_text(title, "ROBOT DE TRI AUTOMATIQUE");
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 5);
   lv_obj_set_style_text_color(title, lv_color_hex(0x89B4FA), 0);
 
   // Status label
   label_status = lv_label_create(main_menu);
-  lv_obj_align(label_status, LV_ALIGN_TOP_MID, 0, 35);
+  lv_obj_align(label_status, LV_ALIGN_TOP_MID, 0, 25);
   lv_label_set_text(label_status, "Robot pret - Scannez d'abord les servos");
   lv_obj_set_style_text_color(label_status, lv_color_hex(0xF9E2AF), 0);
 
   // Section DEBUG/SCAN
   lv_obj_t *debug_title = lv_label_create(main_menu);
   lv_label_set_text(debug_title, "DEBUG - SCAN SERVOMOTEURS");
-  lv_obj_align(debug_title, LV_ALIGN_TOP_LEFT, 20, 70);
+  lv_obj_align(debug_title, LV_ALIGN_TOP_LEFT, 10, 50);
   lv_obj_set_style_text_color(debug_title, lv_color_hex(0x94E2D5), 0);
 
   // Bouton Scanner
   lv_obj_t *btn_scan = lv_btn_create(main_menu);
-  lv_obj_set_size(btn_scan, 120, 35);
-  lv_obj_align(btn_scan, LV_ALIGN_TOP_LEFT, 20, 95);
+  lv_obj_set_size(btn_scan, 100, 30);
+  lv_obj_align(btn_scan, LV_ALIGN_TOP_LEFT, 10, 70);
   lv_obj_set_style_bg_color(btn_scan, lv_color_hex(0x89B4FA), 0);
   lv_obj_add_event_cb(btn_scan, [](lv_event_t *e){
       if (label_status) lv_label_set_text(label_status, "Scan des servos en cours...");
@@ -465,32 +620,54 @@ void show_main_menu() {
       snprintf(result, sizeof(result), "Scan termine: %d servo(s) detecte(s)", detected_count);
       if (label_status) lv_label_set_text(label_status, result);
       update_servo_dropdown();
+      
+      // NOUVEAU : Afficher automatiquement les infos de torque après le scan
+      displayTorqueInfo();
   }, LV_EVENT_CLICKED, NULL);
   
   lv_obj_t *lbl_scan = lv_label_create(btn_scan);
-  lv_label_set_text(lbl_scan, "Scanner Servos");
+  lv_label_set_text(lbl_scan, "Scanner");
   lv_obj_center(lbl_scan);
+
+  // NOUVEAU : Bouton Torque Info
+  lv_obj_t *btn_torque = lv_btn_create(main_menu);
+  lv_obj_set_size(btn_torque, 100, 30);
+  lv_obj_align(btn_torque, LV_ALIGN_TOP_LEFT, 120, 70);
+  lv_obj_set_style_bg_color(btn_torque, lv_color_hex(0xF38BA8), 0);
+  lv_obj_add_event_cb(btn_torque, [](lv_event_t *e){
+      displayTorqueInfo();
+  }, LV_EVENT_CLICKED, NULL);
+  
+  lv_obj_t *lbl_torque = lv_label_create(btn_torque);
+  lv_label_set_text(lbl_torque, "Torque Info");
+  lv_obj_center(lbl_torque);
 
   // Dropdown servos (pour debug)
   servo_dropdown = lv_dropdown_create(main_menu);
-  lv_obj_set_width(servo_dropdown, 200);
-  lv_obj_align(servo_dropdown, LV_ALIGN_TOP_LEFT, 160, 95);
+  lv_obj_set_width(servo_dropdown, 150);
+  lv_obj_align(servo_dropdown, LV_ALIGN_TOP_LEFT, 230, 70);
   lv_dropdown_set_text(servo_dropdown, "Aucun servo detecte");
   lv_obj_add_flag(servo_dropdown, LV_OBJ_FLAG_HIDDEN);
   lv_obj_set_style_bg_color(servo_dropdown, lv_color_hex(0x45475A), 0);
   lv_obj_set_style_text_color(servo_dropdown, lv_color_hex(0xCDD6F4), 0);
   lv_obj_add_event_cb(servo_dropdown, dropdown_servo_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
+  // NOUVEAU : Label pour afficher les infos de torque
+  label_torque_info = lv_label_create(main_menu);
+  lv_obj_align(label_torque_info, LV_ALIGN_TOP_LEFT, 10, 105);
+  lv_label_set_text(label_torque_info, "Cliquez sur 'Torque Info' pour voir les valeurs");
+  lv_obj_set_style_text_color(label_torque_info, lv_color_hex(0xCDD6F4), 0);
+
   // Section SEQUENCES AUTOMATIQUES
   lv_obj_t *seq_title = lv_label_create(main_menu);
   lv_label_set_text(seq_title, "SEQUENCES AUTOMATIQUES DE TRI");
-  lv_obj_align(seq_title, LV_ALIGN_TOP_LEFT, 20, 150);
+  lv_obj_align(seq_title, LV_ALIGN_TOP_LEFT, 10, 170);
   lv_obj_set_style_text_color(seq_title, lv_color_hex(0xF38BA8), 0);
 
   // Bouton GAUCHE
   lv_obj_t *btn_gauche = lv_btn_create(main_menu);
-  lv_obj_set_size(btn_gauche, 180, 50);
-  lv_obj_align(btn_gauche, LV_ALIGN_TOP_LEFT, 50, 180);
+  lv_obj_set_size(btn_gauche, 180, 45);
+  lv_obj_align(btn_gauche, LV_ALIGN_TOP_LEFT, 30, 195);
   lv_obj_set_style_bg_color(btn_gauche, lv_color_hex(0xA6E3A1), 0);
   lv_obj_set_style_bg_color(btn_gauche, lv_color_hex(0x94E2D5), LV_STATE_PRESSED);
   lv_obj_add_event_cb(btn_gauche, [](lv_event_t *e){ 
@@ -502,8 +679,8 @@ void show_main_menu() {
 
   // Bouton DROITE  
   lv_obj_t *btn_droite = lv_btn_create(main_menu);
-  lv_obj_set_size(btn_droite, 180, 50);
-  lv_obj_align(btn_droite, LV_ALIGN_TOP_LEFT, 250, 180);
+  lv_obj_set_size(btn_droite, 180, 45);
+  lv_obj_align(btn_droite, LV_ALIGN_TOP_LEFT, 220, 195);
   lv_obj_set_style_bg_color(btn_droite, lv_color_hex(0xF38BA8), 0);
   lv_obj_set_style_bg_color(btn_droite, lv_color_hex(0xF9E2AF), LV_STATE_PRESSED);
   lv_obj_add_event_cb(btn_droite, [](lv_event_t *e){ 
@@ -514,7 +691,7 @@ void show_main_menu() {
   lv_obj_center(lbl_droite);
 }
 
-// --- MENU CONTROLE ---
+// --- MENU CONTROLE (inchangé) ---
 void show_ctrl_menu(uint8_t id) {
   app_state = MENU_CONTROL;
   if (main_menu) {
