@@ -32,12 +32,13 @@ Robot autonome de tri d'objets entre deux tapis parallèles, équipé d'une **pi
 
 ### Plateforme de Développement
 - **Microcontrôleur** : STM32F746G-DISCO
-- **Kit Robotique** : BIOLOID (Robotis)
+- **Pièces mécaniques** : Kit robotique BIOLOID (assemblage uniquement)
 - **Servomoteurs** : AX-12A Dynamixel
 - **Support mécanique** : Planche de montage stabilisée
+- **Alimentation** : Power supply de laboratoire
 
 ### Construction Mécanique
-- **Pince robotisée** : Assemblée avec pièces du kit BIOLOID
+- **Pince robotisée** : Assemblée avec pièces mécaniques du kit BIOLOID
 - **Bras articulé** : Fixé sur planche pour stabilité optimale
 - **Tapis de tri** : Deux zones parallèles de transfert d'objets
 
@@ -53,7 +54,7 @@ Robot autonome de tri d'objets entre deux tapis parallèles, équipé d'une **pi
   - TX: **PG_14** (D1)
   - RX: **PC_7** (D0)
 - **Écran tactile** : Interface LVGL intégrée
-- **Alimentation** : Via kit BIOLOID (11.1V LiPo)
+- **Alimentation** : Power supply de laboratoire (tension ajustable)
 
 ---
 
@@ -237,7 +238,7 @@ Code disponible à des fins éducatives et de démonstration.
 
 **Rayan** - *Étudiant GE2II, IUT de Cachan (Université Paris-Saclay)*
 - Conception et développement du système complet
-- Assemblage mécanique avec kit BIOLOID
+- Assemblage mécanique avec pièces du kit BIOLOID
 - Implémentation logicielle STM32 + LVGL
 
 ---
@@ -261,7 +262,7 @@ Code disponible à des fins éducatives et de démonstration.
 ## 🏫 Remerciements
 
 - **Équipe pédagogique GE2II** - Encadrement et ressources techniques
-- **IUT de Cachan** - Mise à disposition du matériel BIOLOID
+- **Laboratoire IUT de Cachan** - Mise à disposition du matériel (BIOLOID, power supply, STM32)
 - **Université Paris-Saclay** - Cadre de formation d'excellence
 
 ---
