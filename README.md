@@ -226,9 +226,10 @@ Statut: Pince OUVERTE
 
 ---
 
-## 📜 Licence
+## 📜 Licence et Usage
 
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+**Projet académique** - IUT de Cachan (Université Paris-Saclay)  
+Code disponible à des fins éducatives et de démonstration.
 
 ---
 
