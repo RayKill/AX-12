@@ -56,6 +56,14 @@ void disableTorque(uint8_t id) {
   ax12.write(packet, 8);
 }
 
+// Nouvelle fonction pour limiter le couple maximum
+void setTorqueLimit(uint8_t id, uint16_t torque_limit) {
+  uint8_t torqueL = torque_limit & 0xFF;
+  uint8_t torqueH = (torque_limit >> 8) & 0xFF;
+  uint8_t packet[9] = {0xFF, 0xFF, id, 0x05, 0x03, 0x0E, torqueL, torqueH, (uint8_t)(~(id + 0x05 + 0x03 + 0x0E + torqueL + torqueH))};
+  ax12.write(packet, 9);
+}
+
 void setVitesse(uint8_t id, uint16_t vitesse) {
   g_vitesse = vitesse;
   uint8_t velL = vitesse & 0xFF;
@@ -122,6 +130,11 @@ void initGripper() {
   // Activer le couple et vitesse modérée
   enableTorque(GRIPPER_LEFT_ID);
   enableTorque(GRIPPER_RIGHT_ID);
+  
+  // Configuration du couple maximum pour éviter le relâchement
+  setTorqueLimit(GRIPPER_LEFT_ID, 1023);   // Couple maximum (100%)
+  setTorqueLimit(GRIPPER_RIGHT_ID, 1023);  // Couple maximum (100%)
+  
   setVitesse(GRIPPER_LEFT_ID, 80);
   setVitesse(GRIPPER_RIGHT_ID, 80);
   
@@ -132,15 +145,19 @@ void initGripper() {
   delay(1000); // Attendre que les servos atteignent la position
   gripperClosed = false;
   
-  if (label_status) lv_label_set_text(label_status, "Pince initialisee - Position neutre");
-  Serial.println("Pince initialisee");
+  if (label_status) lv_label_set_text(label_status, "Pince initialisee - Couple max configure");
+  Serial.println("Pince initialisee avec couple maximum");
 }
 
 void controlGripper(bool close) {
   if (close && !gripperClosed) {
-    // Fermeture intelligente RAPIDE avec adaptation à l'objet
-    Serial.println("Fermeture rapide intelligente de la pince...");
-    if (label_status) lv_label_set_text(label_status, "Fermeture rapide...");
+    // Fermeture intelligente RAPIDE avec couple renforcé
+    Serial.println("Fermeture rapide avec couple maximum...");
+    if (label_status) lv_label_set_text(label_status, "Fermeture avec force max...");
+    
+    // S'assurer que le couple est au maximum
+    setTorqueLimit(GRIPPER_LEFT_ID, 1023);
+    setTorqueLimit(GRIPPER_RIGHT_ID, 1023);
     
     setVitesse(GRIPPER_LEFT_ID, 150);   // Vitesse très augmentée pour approche
     setVitesse(GRIPPER_RIGHT_ID, 150);
@@ -151,7 +168,7 @@ void controlGripper(bool close) {
     delay(400);  // Délai augmenté pour s'assurer que le mouvement est terminé
     
     // Étape 2: Fermeture progressive avec détection d'objet
-    Serial.println("Detection d'objet en cours...");
+    Serial.println("Detection d'objet avec force renforcee...");
     setVitesse(GRIPPER_LEFT_ID, 30);   // Vitesse augmentée pour détecter
     setVitesse(GRIPPER_RIGHT_ID, 30);
     
@@ -180,15 +197,21 @@ void controlGripper(bool close) {
         Serial.print(" D:");
         Serial.println(loadRight);
         
-        // Appliquer une pression importante RAPIDEMENT
-        setVitesse(GRIPPER_LEFT_ID, 80);   // Vitesse rapide pour pression finale
-        setVitesse(GRIPPER_RIGHT_ID, 80);
-        moveTo(GRIPPER_LEFT_ID, leftPos + 8);
-        moveTo(GRIPPER_RIGHT_ID, rightPos - 8);
-        delay(400);  // Délai pour s'assurer de la pression
+        // Appliquer une pression MAXIMALE pour maintenir la prise
+        setVitesse(GRIPPER_LEFT_ID, 50);   // Vitesse contrôlée pour pression finale
+        setVitesse(GRIPPER_RIGHT_ID, 50);
+        moveTo(GRIPPER_LEFT_ID, leftPos + 12);  // +12 pour pression très forte
+        moveTo(GRIPPER_RIGHT_ID, rightPos - 12);
+        delay(500);  // Délai pour s'assurer de la pression maximale
+        
+        // Vérification de maintien - renforcer si nécessaire
+        delay(200);
+        moveTo(GRIPPER_LEFT_ID, leftPos + 15);  // Pression encore plus forte
+        moveTo(GRIPPER_RIGHT_ID, rightPos - 15);
+        delay(300);
         
         objectDetected = true;
-        if (label_status) lv_label_set_text(label_status, "Objet saisi - Prise adaptee");
+        if (label_status) lv_label_set_text(label_status, "Objet saisi - Prise RENFORCEE");
         break;
       }
       
@@ -197,13 +220,13 @@ void controlGripper(bool close) {
     }
     
     if (!objectDetected) {
-      // Aucun objet détecté, fermeture complète RAPIDE
-      setVitesse(GRIPPER_LEFT_ID, 100);   // Vitesse rapide pour fermeture finale
-      setVitesse(GRIPPER_RIGHT_ID, 100);
+      // Aucun objet détecté, fermeture complète MAXIMALE
+      setVitesse(GRIPPER_LEFT_ID, 80);   // Vitesse contrôlée pour force max
+      setVitesse(GRIPPER_RIGHT_ID, 80);
       moveTo(GRIPPER_LEFT_ID, GRIPPER_LEFT_CLOSED);
       moveTo(GRIPPER_RIGHT_ID, GRIPPER_RIGHT_CLOSED);
-      delay(350);  // Délai pour s'assurer de la fermeture complète
-      if (label_status) lv_label_set_text(label_status, "Pince fermee - Aucun objet");
+      delay(400);  // Délai pour s'assurer de la fermeture complète
+      if (label_status) lv_label_set_text(label_status, "Pince fermee - Force maximale");
     }
     
     gripperClosed = true;
