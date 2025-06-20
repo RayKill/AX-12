@@ -1,6 +1,6 @@
 /**
  * ========================================================================
- * ROBOT DE TRI AUTOMATIQUE - AX12A + LVGL + STM32F746G
+ * TRIAX - Robot de Tri Automatique
  * ========================================================================
  * 
  * Projet académique - IUT de Cachan (Université Paris-Saclay)
