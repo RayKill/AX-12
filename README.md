@@ -1,76 +1,82 @@
-# 🤖 Robot de Tri Automatique - AX12A + LVGL + STM32F746G
+# 🤖 TRIAX - Robot de Tri Automatique
 
-**Projet académique IUT de Cachan (Université Paris-Saclay)**  
-**Département GE2II - Génie Électrique et Informatique Industrielle**
+**Projet d'Instrumentation - LP MECSE**  
+**IUT de Cachan (Université Paris-Saclay)**
 
-Projet PlatformIO pour un **robot de tri automatique** utilisant des **servomoteurs Dynamixel AX-12A** du kit **BIOLOID** pilotés par un **STM32F746G-DISCO** avec interface graphique **LVGL**.
+Système robotique intelligent utilisant des **servomoteurs Dynamixel AX-12A** du kit **BIOLOID** pilotés par un **STM32F746G-DISCO** avec interface graphique **LVGL**.
+
+---
 
 ## 🎯 Description du Projet
 
-Robot autonome de tri d'objets entre deux tapis parallèles, équipé d'une **pince robotisée intelligente** et d'un **système de transport linéaire**.
+**TRIAX** est un robot autonome de tri d'objets entre deux zones parallèles, développé dans le cadre du module d'instrumentation de la LP MECSE. Le système intègre une **pince robotisée intelligente** avec détection d'objet et un **bras de transport linéaire**.
 
 ### 🎓 Objectifs Pédagogiques
-- **Intégration système** : Combiner hardware BIOLOID et software embarqué
-- **Programmation temps réel** : Gestion de séquences robotiques complexes
-- **Interface utilisateur** : Développement d'IHM tactile avec LVGL
-- **Protocoles industriels** : Maîtrise du bus Dynamixel et UART
-- **Gestion d'erreurs** : Implémentation de sécurités anti-overload
+- **Systèmes embarqués** : Programmation STM32 et gestion temps réel
+- **Instrumentation** : Intégration capteurs et actionneurs intelligents
+- **Protocoles industriels** : Maîtrise du bus Dynamixel et communications série
+- **Interface utilisateur** : Développement d'IHM tactile professionnelle
+- **Mécatronique** : Fusion hardware/software pour système robotique complet
 
 ### ✨ Fonctionnalités Principales
 
-- 🔄 **Séquences automatiques** de tri (Gauche ↔ Droite)
-- 🦾 **Pince intelligente** avec détection d'objet et gestion anti-overload
+- 🔄 **Séquences automatiques** de tri bidirectionnel (Gauche ↔ Droite)
+- 🦾 **Pince intelligente** avec détection d'objet par analyse de charge
 - 📡 **Scan automatique** des servomoteurs sur le bus Dynamixel
-- 🎛️ **Interface graphique** complète avec LVGL
-- 🔧 **Contrôle individuel** de chaque servo (position, vitesse)
-- 📊 **Diagnostic en temps réel** (torque, température, erreurs)
-- 🛡️ **Protection anti-surcharge** automatique
+- 🎛️ **Interface graphique** tactile complète avec LVGL
+- 🔧 **Contrôle individuel** de chaque servo (position, vitesse, diagnostics)
+- 📊 **Monitoring temps réel** (torque, température, erreurs)
+- 🛡️ **Protection anti-surcharge** automatique avec recovery
 
 ---
 
 ## 🔩 Configuration Matérielle
 
 ### Plateforme de Développement
-- **Microcontrôleur** : STM32F746G-DISCO
-- **Pièces mécaniques** : Kit robotique BIOLOID (assemblage uniquement)
-- **Servomoteurs** : AX-12A Dynamixel
+- **Microcontrôleur** : STM32F746G-DISCO (Cortex-M7 à 216 MHz)
+- **Pièces mécaniques** : Kit robotique BIOLOID (assemblage structural)
+- **Servomoteurs** : 3x AX-12A Dynamixel (couple 1.5 N⋅m, résolution 0.29°)
 - **Support mécanique** : Planche de montage stabilisée
-- **Alimentation** : Power supply de laboratoire
+- **Alimentation** : Power supply de laboratoire (11-12V, 3A)
 
-### Construction Mécanique
+### Architecture Mécanique
 - **Pince robotisée** : Assemblée avec pièces mécaniques du kit BIOLOID
-- **Bras articulé** : Fixé sur planche pour stabilité optimale
-- **Tapis de tri** : Deux zones parallèles de transfert d'objets
+- **Bras articulé** : Fixation rigide sur support pour stabilité optimale
+- **Zones de tri** : Deux tapis parallèles pour transfert d'objets
+- **Course linéaire** : Déplacement entre positions 192 et 839 (unités servo)
 
-### Servomoteurs AX-12A
-| ID | Fonction | Position Initiale | Rôle |
-|----|----------|------------------|------|
-| **1** | Pince Gauche | 830 | Saisie/Relâchement |
-| **23** | Pince Droite | 520 | Saisie/Relâchement |
-| **41** | Transport | Variable | Déplacement linéaire |
+### Configuration des Servomoteurs
+| ID | Fonction | Position Init | Position Fermée | Position Ouverte | Rôle |
+|----|----------|---------------|-----------------|------------------|------|
+| **1** | Pince Gauche | 830 | 950 | 724 | Saisie/Relâchement |
+| **23** | Pince Droite | 520 | 380 | 620 | Saisie/Relâchement |
+| **41** | Transport | Variable | - | - | Déplacement linéaire |
 
 ### Connexions Électriques
-- **UART6** : Communication Dynamixel (1 Mbps)
-  - TX: **PG_14** (D1)
-  - RX: **PC_7** (D0)
-- **Écran tactile** : Interface LVGL intégrée
-- **Alimentation** : Power supply de laboratoire (tension ajustable)
+- **UART6** : Communication Dynamixel (1 Mbps, Half-duplex)
+  - TX: **PG_14** (D1) - Transmission vers servos
+  - RX: **PC_7** (D0) - Réception depuis servos
+- **Écran tactile** : Interface LVGL intégrée (480×272 pixels)
+- **Alimentation** : Power supply lab (tension ajustable, protection court-circuit)
 
 ---
 
 ## 🗂️ Structure du Projet
 
 ```
-robot-tri-automatique/
-├── include/
-│   ├── lvglDrivers.h
-│   └── PeripheralPins.h
+TRIAX/
 ├── src/
-│   └── main.cpp              # Code principal
+│   └── main.cpp              # Code principal commenté (1000+ lignes)
+├── include/
+│   ├── lvglDrivers.h         # Pilotes écran tactile STM32F746G
+│   └── PeripheralPins.h      # Mapping broches microcontrôleur
+├── docs/
+│   ├── rapport_fin_module.md # Documentation technique complète
+│   └── sequences.md          # Algorithmes de tri détaillés
+├── schematics/
+│   └── connexions.png        # Schémas de raccordement
 ├── platformio.ini            # Configuration PlatformIO
-├── README.md
-└── docs/
-    └── sequences.md          # Documentation des séquences
+└── README.md                 # Ce fichier
 ```
 
 ---
@@ -96,175 +102,257 @@ lib_deps =
 
 ### 1. Interface Principale
 
-Au démarrage, l'interface affiche :
-- **Statut du robot** en temps réel
-- **Section DEBUG** : Scan et diagnostic
-- **Boutons de séquences** automatiques
+Au démarrage, **TRIAX** affiche son interface tactile avec :
+- **Titre du projet** et statut système en temps réel
+- **Section DEBUG** : Scan automatique et diagnostic des servos
+- **Boutons de séquences** : GAUCHE (839→192) et DROITE (192→839)
 
-### 2. Scan des Servomoteurs
+### 2. Scan et Diagnostic
 
 ```cpp
 // Cliquer sur "Scanner" pour détecter automatiquement :
-// - Servos de la pince (ID 1, 23)
-// - Servo de transport (ID 41)  
-// - Autres servos présents (ID 0-254)
+// ✓ Servos critiques (ID 1, 23, 41) en priorité
+// ✓ Scan complet bus Dynamixel (ID 0-254)
+// ✓ Activation automatique du couple moteur
+// ✓ Affichage dans dropdown pour contrôle individuel
 ```
+
+**"Torque Info"** affiche le diagnostic complet :
+- Position actuelle, charge instantanée, limite de torque
+- Température des moteurs, codes d'erreur éventuels
+- Statut de la pince (OUVERTE/FERMÉE)
 
 ### 3. Séquences Automatiques
 
 #### 🟢 Séquence GAUCHE (839 → 192)
-1. Ouverture sécurisée de la pince
-2. Déplacement vers zone de prise (position 839)
-3. **Saisie intelligente** avec détection d'objet
-4. Transport vers zone de dépôt (position 192)
-5. Relâchement de l'objet
+1. **Ouverture sécurisée** avec synchronisation renforcée
+2. **Transport** vers zone de prise (position 839)
+3. **Saisie intelligente** par analyse de charge temps réel
+4. **Déplacement** vers zone de dépôt (position 192)
+5. **Libération** contrôlée de l'objet
 
 #### 🔴 Séquence DROITE (192 → 839)
-1. Ouverture sécurisée de la pince
-2. Déplacement vers zone de prise (position 192)
-3. **Saisie intelligente** avec détection d'objet
-4. Transport vers zone de dépôt (position 839)
-5. Relâchement de l'objet
+Séquence symétrique avec inversion des positions de prise/dépôt.
 
-### 4. Contrôle Manuel
-
-Via le dropdown des servos détectés :
-- **Contrôle position** (0-1023)
-- **Réglage vitesse** (4-330)
-- **Mode séquence aléatoire**
-
----
-
-## 🛡️ Sécurités Intégrées
-
-### Protection Anti-Overload
-- **Détection automatique** des surcharges
-- **Reset intelligent** des servos en erreur
-- **Limites de couple** configurables
-- **Fermeture progressive** pour éviter les blocages
-
-### Gestion d'Erreurs
-- **Diagnostic temps réel** des erreurs servo
-- **Recovery automatique** en cas de problème
-- **Affichage des codes d'erreur** en hexadécimal
-- **Messages d'état** informatifs
-
----
-
-## 📊 Diagnostic et Monitoring
-
-### Informations Disponibles
-- **Position actuelle** de chaque servo
-- **Charge instantanée** vs limite configurée
-- **Température** des moteurs
-- **Codes d'erreur** détaillés
-- **Pourcentage d'utilisation** du couple
-
-### Bouton "Torque Info"
-Affiche en temps réel pour chaque servo :
-```
-ID 1: Pos=830 Charge=45 Limite=800 Temp=32°C
-ID 23: Pos=520 Charge=38 Limite=800 Temp=31°C
-Statut: Pince OUVERTE
-```
-
----
-
-## 🔧 Configuration Avancée
-
-### Paramètres de la Pince
+### 4. Algorithme de Saisie Intelligente
 
 ```cpp
-// Positions critiques
-#define GRIPPER_LEFT_CLOSED 950    // Fermeture maximale gauche
-#define GRIPPER_RIGHT_CLOSED 380   // Fermeture maximale droite
-#define GRIPPER_LEFT_OPEN 724      // Position ouverte gauche
-#define GRIPPER_RIGHT_OPEN 620     // Position ouverte droite
-
-// Seuils de sécurité
-#define GRIPPER_FORCE_THRESHOLD 20 // Détection d'objet
+// Approche rapide → Fermeture progressive par micro-étapes
+for (int step = 0; step < 12 && !objectDetected; step++) {
+    // Mouvement coordonné des servos
+    moveTo(GRIPPER_LEFT_ID, leftPos + step);
+    moveTo(GRIPPER_RIGHT_ID, rightPos - step);
+    
+    // Analyse de la charge pour détection d'objet
+    if (loadIncrease > THRESHOLD || loadAbsolute > LIMIT) {
+        objectDetected = true;
+        // Application pression contrôlée pour maintien
+    }
+}
 ```
 
-### Communication Série
-- **Baudrate** : 1 000 000 bps (standard Dynamixel)
-- **Protocole** : Dynamixel v1.0
-- **Timeout** : 10ms par commande
+### 5. Contrôle Individuel
+
+Sélection d'un servo via dropdown → Menu de contrôle avancé :
+- **Slider position** : 0-1023 (équivalent 0-300°)
+- **Slider vitesse** : 4-330 (vitesse de rotation)
+- **Mode séquence aléatoire** : Test automatique de mouvement
+- **Retour menu principal** : Navigation fluide
 
 ---
 
-## 🚧 Améliorations Futures
+## 🛡️ Sécurités et Robustesse
 
-- [ ] **Capteurs de vision** pour reconnaissance d'objets
-- [ ] **Interface web** de monitoring à distance
-- [ ] **Apprentissage automatique** des séquences optimales
-- [ ] **API REST** pour intégration système
-- [ ] **Logs d'activité** avec horodatage
-- [ ] **Mode maintenance** avec calibrage automatique
+### Protection Anti-Overload
+- **Détection temps réel** des surcharges par lecture registre d'erreur
+- **Limites de couple** configurables (0-1023, défaut 1023 = couple max)
+- **Recovery automatique** : reset + reconfiguration en cas d'erreur
+- **Algorithme adaptatif** : réduction automatique du couple si nécessaire
 
----
+### Communication Robuste
+- **Protocole Dynamixel v1.0** avec checksum et détection d'erreurs
+- **Timeouts optimisés** : 10ms par transaction, retry automatique
+- **Gestion half-duplex** : délais calibrés pour commutation TX/RX
+- **Scan intelligent** : priorité aux servos critiques, puis scan complet
 
-## 📝 Notes Techniques
-
-### Problèmes Résolus
-- ✅ **Overload servo ID 23** : Protection automatique implémentée
-- ✅ **Relâchement intempestif** : Gestion intelligente du couple
-- ✅ **Communication instable** : Timeouts et retry optimisés
-
-### Performance
-- **Temps de cycle** : ~15-20 secondes par objet
-- **Précision positioning** : ±1 unité servo (0.3°)
-- **Fiabilité saisie** : >95% avec objets standards
+### Interface Utilisateur
+- **Feedback visuel** permanent (statuts, erreurs, progression)
+- **Messages informatifs** pour guidage utilisateur
+- **Protection logicielle** : impossibilité de lancer plusieurs séquences
+- **Navigation intuitive** : retour menu, sélection servo sans redémarrage
 
 ---
 
-## 🤝 Contribution
+## 📊 Performance et Métrologie
 
-1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/nouvelle-fonctionnalite`)
-3. Commit les modifications (`git commit -m 'Ajout nouvelle fonctionnalité'`)
-4. Push vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
-5. Ouvrir une Pull Request
+### Caractéristiques Mesurées
+- **Temps de cycle complet** : 15-20 secondes par objet transporté
+- **Précision de positionnement** : ±1 unité servo (≈ 0.3° angulaire)
+- **Taux de réussite saisie** : >95% pour objets standards (20-50mm)
+- **Vitesse de communication** : 1 Mbps stable sur bus Dynamixel
+
+### Monitoring Temps Réel
+- **Position** : Lecture registre 0x24 (Present Position)
+- **Charge** : Registre 0x28 (Present Load) pour détection d'effort
+- **Température** : Registre 0x2B pour surveillance thermique moteurs
+- **Erreurs** : Registre 0x12 (flags overload, voltage, temperature)
+
+---
+
+## 🔧 Instrumentation et Protocoles
+
+### Bus Dynamixel v1.0
+**Format de trame** : `[0xFF][0xFF][ID][LENGTH][INSTRUCTION][PARAMS][CHECKSUM]`
+
+**Instructions principales utilisées** :
+- `PING (0x01)` : Détection présence servo
+- `WRITE_DATA (0x03)` : Configuration registres (position, vitesse, couple)
+- `READ_DATA (0x02)` : Lecture état (position, charge, température)
+
+**Registres critiques** :
+- `0x1E` Goal Position (0-1023)
+- `0x20` Moving Speed (0-1023) 
+- `0x0E` Max Torque (limitation couple)
+- `0x18` Torque Enable (activation moteur)
+
+### Architecture Logicielle
+```cpp
+// Couches logicielles
+┌─────────────────────────────────────┐
+│ Interface LVGL (IHM tactile)       │
+├─────────────────────────────────────┤
+│ Logique métier (séquences, algo)   │
+├─────────────────────────────────────┤
+│ Protocole Dynamixel (communication)│
+├─────────────────────────────────────┤
+│ HAL STM32 (UART, GPIO, timers)     │
+└─────────────────────────────────────┘
+```
+
+---
+
+## 🚧 Évolutions Futures
+
+### Court terme
+- [ ] **Calibrage automatique** des positions limites de pince
+- [ ] **Sauvegarde EEPROM** des paramètres utilisateur
+- [ ] **Mode maintenance** avec diagnostic approfondi
+- [ ] **Optimisation vitesses** selon type d'objet détecté
+
+### Moyen terme  
+- [ ] **Capteur de vision** pour reconnaissance forme/couleur
+- [ ] **Interface web** de monitoring à distance (WiFi/Ethernet)
+- [ ] **Apprentissage adaptatif** des paramètres de saisie
+- [ ] **Multi-robots** : coordination de plusieurs unités TRIAX
+
+### Long terme
+- [ ] **Intelligence artificielle** pour optimisation des trajectoires
+- [ ] **Intégration IoT** avec supervision cloud
+- [ ] **Modularité hardware** : adaptation différents effecteurs
+- [ ] **Certification industrielle** pour environnements production
+
+---
+
+## 📝 Documentation Technique
+
+### Registres AX-12A Utilisés
+| Adresse | Nom | R/W | Description |
+|---------|-----|-----|-------------|
+| 0x0E | Max Torque | RW | Limite couple moteur (0-1023) |
+| 0x12 | Present Error | R | Flags d'erreur (overload, voltage, etc.) |
+| 0x18 | Torque Enable | RW | Activation/désactivation moteur |
+| 0x1E | Goal Position | RW | Position cible (0-1023 = 0-300°) |
+| 0x20 | Moving Speed | RW | Vitesse rotation (0-1023) |
+| 0x24 | Present Position | R | Position actuelle lue |
+| 0x28 | Present Load | R | Charge/effort instantané |
+| 0x2B | Present Temperature | R | Température interne moteur |
+
+### Calculs de Conversion
+```cpp
+// Position angulaire ↔ Unités servo
+float angle_deg = (servo_units * 300.0) / 1023.0;
+uint16_t servo_units = (angle_deg * 1023.0) / 300.0;
+
+// Charge ↔ Pourcentage couple
+float torque_percent = (load_value * 100.0) / torque_limit;
+```
+
+---
+
+## 📚 Références et Standards
+
+### Normes Appliquées
+- **Dynamixel Protocol v1.0** (Robotis Inc.)
+- **STM32F746xx Reference Manual** (STMicroelectronics)
+- **LVGL Documentation v8.3** (Interface graphique)
+- **Arduino Framework** pour développement rapid prototyping
+
+### Documentation Projet
+- **Code source** : 100% commenté avec explications détaillées
+- **Rapport technique** : Architecture, algorithmes, résultats
+- **Schémas électriques** : Connexions et interfaces
+- **Guide utilisateur** : Procédures d'utilisation et maintenance
+
+---
+
+## 👥 Équipe Projet
+
+**DJOUDI Rayan** - *Étudiant LP MECSE, IUT de Cachan (Université Paris-Saclay)*
+- Conception et développement système complet
+- Programmation embedded STM32 + interface LVGL  
+- Assemblage mécanique avec composants BIOLOID
+- Algorithmes de saisie intelligente et séquences automatiques
+- Documentation technique et validation expérimentale
+
+---
+
+## 🎓 Contexte Académique
+
+**Formation** : Licence Professionnelle MECSE (Mécatronique et Électronique des Systèmes Embarqués)  
+**Établissement** : IUT de Cachan - Université Paris-Saclay  
+**Module** : Projet d'Instrumentation  
+**Année académique** : 2024-2025  
+
+### Compétences Développées
+- 🔧 **Programmation embarquée** : STM32, C++, framework Arduino
+- 🤖 **Robotique industrielle** : Servomoteurs intelligents, protocoles série
+- 🎨 **Interface homme-machine** : LVGL, design d'expérience utilisateur
+- ⚡ **Instrumentation** : Capteurs/actionneurs, acquisition de données
+- 🛠️ **Intégration système** : Mécanique + Électronique + Logiciel
+- 📊 **Métrologie** : Mesures, validation, analyse de performance
+
+### Livrables Académiques
+- **Démonstration fonctionnelle** : Vendredi 20 juin 2025
+- **Rapport technique** : Documentation complète du système
+- **Code source commenté** : Repository GitHub public
+- **Présentation orale** : Soutenance devant jury technique
+
+---
+
+## 🏫 Remerciements
+
+- **Équipe pédagogique LP MECSE** - Encadrement technique et méthodologique
+- **Laboratoire IUT de Cachan** - Mise à disposition matériel (BIOLOID, STM32, équipements)
+- **Université Paris-Saclay** - Environnement de formation d'excellence
+- **Robotis Inc.** - Documentation technique des servomoteurs Dynamixel
 
 ---
 
 ## 📜 Licence et Usage
 
 **Projet académique** - IUT de Cachan (Université Paris-Saclay)  
-Code disponible à des fins éducatives et de démonstration.
+Code source disponible à des fins éducatives et de démonstration.  
+Utilisation commerciale soumise à autorisation de l'auteur.
 
 ---
 
-## 👥 Auteurs
+## 📞 Contact
 
-**Rayan** - *Étudiant GE2II, IUT de Cachan (Université Paris-Saclay)*
-- Conception et développement du système complet
-- Assemblage mécanique avec pièces du kit BIOLOID
-- Implémentation logicielle STM32 + LVGL
-
----
-
-## 🎓 Contexte Académique
-
-**Formation** : DUT Génie Électrique et Informatique Industrielle (GE2II)  
-**Établissement** : IUT de Cachan - Université Paris-Saclay  
-**Année** : 2024-2025  
-**Type** : Projet de fin d'études / Mini-projet spécialisé
-
-### Compétences Développées
-- 🔧 **Programmation embarquée** (STM32, C++)
-- 🤖 **Robotique** (Dynamixel, BIOLOID)
-- 🎨 **Interface graphique** (LVGL)
-- ⚡ **Protocoles de communication** (UART, bus série)
-- 🛠️ **Intégration système** (hardware/software)
+**Repository GitHub** : `https://github.com/[username]/TRIAX-Robot`  
+**Email étudiant** : `djoudi.rayan@etu.universite-paris-saclay.fr`  
+**LinkedIn** : `linkedin.com/in/rayan-djoudi-lp-mecse`
 
 ---
 
-## 🏫 Remerciements
-
-- **Équipe pédagogique GE2II** - Encadrement et ressources techniques
-- **Laboratoire IUT de Cachan** - Mise à disposition du matériel (BIOLOID, power supply, STM32)
-- **Université Paris-Saclay** - Cadre de formation d'excellence
-
----
-
-*Projet robotique développé dans le cadre de la formation GE2II à l'IUT de Cachan 🎓*
+*TRIAX - Projet d'instrumentation développé en LP MECSE à l'IUT de Cachan 🎓*
+*"Quand la mécatronique rencontre l'intelligence artificielle" 🤖*
