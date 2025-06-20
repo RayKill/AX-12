@@ -11,6 +11,11 @@ Système robotique intelligent utilisant des **servomoteurs Dynamixel AX-12A** d
 
 **TRIAX** est un robot autonome de tri d'objets entre deux zones parallèles, développé dans le cadre du module d'instrumentation de la LP MECSE. Le système intègre une **pince robotisée intelligente** avec détection d'objet et un **bras de transport linéaire**.
 
+### 🎬 Démonstration en Action
+
+![TRIAX en fonctionnement](triax-demo.gif)
+*Séquence complète de tri : détection → saisie → transport → dépôt*
+
 ### 🎓 Objectifs Pédagogiques
 - **Systèmes embarqués** : Programmation STM32 et gestion temps réel
 - **Instrumentation** : Intégration capteurs et actionneurs intelligents
