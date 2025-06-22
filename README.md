@@ -14,6 +14,8 @@ Système robotique intelligent utilisant des **servomoteurs Dynamixel AX-12A** d
 ### 🎬 Démonstration en Action
 
 ![TRIAX en fonctionnement](triax-demo.gif)
+
+
 *Séquence complète de tri : détection → saisie → transport → dépôt*
 
 ### 🎓 Objectifs Pédagogiques
