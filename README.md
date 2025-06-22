@@ -355,9 +355,8 @@ Utilisation commerciale soumise à autorisation de l'auteur.
 
 ## 📞 Contact
 
-**Repository GitHub** : `https://github.com/[username]/TRIAX-Robot`  
-**Email étudiant** : `djoudi.rayan@etu.universite-paris-saclay.fr`  
-**LinkedIn** : `linkedin.com/in/rayan-djoudi-lp-mecse`
+**Repository GitHub** : `https://github.com/RayKill/TRIAX`  
+**Email étudiant** : `rayan.djou@gmail.com`  
 
 ---
 
